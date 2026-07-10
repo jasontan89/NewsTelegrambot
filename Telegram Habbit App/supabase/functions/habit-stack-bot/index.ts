@@ -71,7 +71,7 @@ bot.command('start', async (ctx) => {
           type: "web_app",
           text: "Open App",
           web_app: {
-            url: "https://jasontan89.github.io/NewsTelegrambot/"
+            url: "https://jasontan89.github.io/NewsTelegrambot/?v=2"
           }
         }
       });
