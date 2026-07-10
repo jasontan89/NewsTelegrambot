@@ -95,7 +95,7 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <div className="w-full h-full">
         <Routes>
           <Route path="/" element={<Navigate to="/today" replace />} />
