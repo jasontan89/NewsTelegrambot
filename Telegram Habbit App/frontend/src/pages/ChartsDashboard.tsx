@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import BottomNavBar from '../components/BottomNavBar';
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -20,8 +20,8 @@ export default function ChartsDashboard({ user, supabase }: { user: any, supabas
         
         setHabits(habitsData || []);
         if (habitsData && habitsData.length >= 2) {
-          setVar1(habitsData.find(h => h.category === 'sleep')?.id || habitsData[0].id);
-          setVar2(habitsData.find(h => h.category === 'fitness')?.id || habitsData[1].id);
+          setVar1(habitsData.find((h: any) => h.category === 'sleep')?.id || habitsData[0].id);
+          setVar2(habitsData.find((h: any) => h.category === 'fitness')?.id || habitsData[1].id);
         }
       } catch (err) {
         console.error(err);

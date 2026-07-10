@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import BottomNavBar from '../components/BottomNavBar';
 
 export default function StatsDashboard({ user, supabase }: { user: any, supabase: any }) {
@@ -66,7 +66,7 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
 
         // Create set of completed local dates
         const completedDates = new Set<string>();
-        logsData?.forEach(log => {
+        logsData?.forEach((log: any) => {
           if (isCompleted(log)) {
             completedDates.add(log.log_date);
           }

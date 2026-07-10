@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchTodayData, toggleHabitLog, seedMockData, updateQuantitativeLog } from '../lib/api';
 
