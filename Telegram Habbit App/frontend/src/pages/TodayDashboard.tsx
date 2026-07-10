@@ -23,12 +23,56 @@ function getColorClasses(color: string) {
   }
 }
 
-export default function TodayDashboard({ user, supabase }: { user: any, supabase: any }) {
+export default function TodayDashboard({ user, setUser, supabase }: { user: any, setUser: any, supabase: any }) {
   const navigate = useNavigate();
   const [data, setData] = useState<{ stacks: any[], logs: any[] }>({ stacks: [], logs: [] });
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
   
   const todayStr = getLocalDateString(new Date());
+
+  useEffect(() => {
+    if (user && !user.has_seen_guide) {
+      setShowGuide(true);
+    }
+  }, [user]);
+
+  const handleDismissGuide = async () => {
+    setShowGuide(false);
+    if (user) {
+      setUser({ ...user, has_seen_guide: true });
+      await supabase.from('hs_users').update({ has_seen_guide: true }).eq('id', user.id);
+    }
+  };
+
+  const guideSteps = [
+    {
+      title: "Welcome to Habit Stack! 🚀",
+      description: "Habit stacking works by anchoring new behaviors to your existing daily routines. Let's do a quick tour!",
+      icon: "rocket_launch"
+    },
+    {
+      title: "1. Stacks & Routines 📅",
+      description: "Your day is organized into three default stacks: Morning Stack, Afternoon Stack, and Evening Routine. Perform habits in sequence to make them atomic!",
+      icon: "dashboard"
+    },
+    {
+      title: "2. Track Different Types 📊",
+      description: "Check off simple habits (Vitamins), increment quantitative counters (Water Intake), or log exact time windows (Digital Sunset).",
+      icon: "fact_check"
+    },
+    {
+      title: "3. Streaks & Heatmaps 🔥",
+      description: "Complete all habits in a stack to build a perfect daily streak. Visual heatmap cells track your progress consistency over time.",
+      icon: "local_fire_department"
+    },
+    {
+      title: "4. Telegram Bot Integration 🤖",
+      description: "Chat with our Telegram Bot to log habits instantly on the go (using /log command), check stats, and receive smart, customizable reminders.",
+      icon: "robot_2"
+    }
+  ];
 
   useEffect(() => {
     async function load() {
@@ -175,7 +219,7 @@ export default function TodayDashboard({ user, supabase }: { user: any, supabase
         </div>
       </header>
 
-      <main className="pt-20 px-container-margin pb-stack-gap flex flex-col gap-stack-gap max-w-[390px] mx-auto min-h-screen">
+      <main className="pt-20 px-container-margin pb-[100px] flex flex-col gap-stack-gap max-w-[390px] mx-auto min-h-screen">
         <section className="flex flex-col items-center justify-center py-4 relative">
           <div className="relative w-48 h-48 flex items-center justify-center">
             <svg className="w-full h-full" viewBox="0 0 120 120">
@@ -290,6 +334,58 @@ export default function TodayDashboard({ user, supabase }: { user: any, supabase
       </main>
 
       <BottomNavBar />
+
+      {showGuide && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background-dark/85 backdrop-blur-sm">
+          <div className="w-full max-w-[340px] bg-surface-container border border-border-dark rounded-2xl p-6 flex flex-col items-center text-center gap-5 shadow-2xl animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-4xl">{guideSteps[guideStep].icon}</span>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <h3 className="font-headline-md text-headline-md text-on-surface font-bold">
+                {guideSteps[guideStep].title}
+              </h3>
+              <p className="font-body-base text-body-base text-on-surface-variant leading-relaxed">
+                {guideSteps[guideStep].description}
+              </p>
+            </div>
+
+            {/* Pagination dots */}
+            <div className="flex gap-1.5 justify-center my-1">
+              {guideSteps.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === guideStep ? 'bg-primary w-6' : 'bg-outline-variant/40'}`}
+                />
+              ))}
+            </div>
+
+            <div className="flex gap-3 w-full mt-2">
+              {guideStep > 0 && (
+                <button 
+                  onClick={() => setGuideStep(guideStep - 1)}
+                  className="flex-1 bg-surface-variant text-on-surface font-bold text-sm rounded-lg h-11 active:scale-95 transition-all border border-border-dark"
+                >
+                  Back
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  if (guideStep < guideSteps.length - 1) {
+                    setGuideStep(guideStep + 1);
+                  } else {
+                    handleDismissGuide();
+                  }
+                }}
+                className="flex-1 bg-primary text-background-dark font-bold text-sm rounded-lg h-11 active:scale-95 transition-all"
+              >
+                {guideStep === guideSteps.length - 1 ? 'Start Tracking' : 'Next'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

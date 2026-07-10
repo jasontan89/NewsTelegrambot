@@ -161,6 +161,36 @@ serve(async (req) => {
             reminderText = `🔔 *Reminder to complete: ${habit.name}!*`;
           }
         }
+      } else {
+        // Global reminder
+        const { data: habits } = await supabase
+          .from('hs_habits')
+          .select('id, name, habit_type, target_value')
+          .eq('user_id', user.id)
+          .eq('archived', false);
+
+        if (habits && habits.length > 0) {
+          const { data: logs } = await supabase
+            .from('hs_habit_logs')
+            .select('*')
+            .in('habit_id', habits.map((h: any) => h.id))
+            .eq('log_date', localDate);
+
+          const incomplete = habits.filter((h: any) => {
+            const log = logs?.find(l => l.habit_id === h.id);
+            if (h.habit_type === 'boolean') return !log?.completed;
+            if (h.habit_type === 'quantitative') return (log?.value || 0) < h.target_value;
+            return true;
+          });
+
+          if (incomplete.length === 0) {
+            shouldSend = false;
+          } else {
+            reminderText = `🔔 *Reminder to track your habits!* You have ${incomplete.length} habit(s) left to complete today.`;
+          }
+        } else {
+          reminderText = `🔔 *Time to track your habits today!*`;
+        }
       }
 
       if (shouldSend && reminderText) {

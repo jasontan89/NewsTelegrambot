@@ -99,7 +99,7 @@ export default function App() {
       <div className="w-full h-full">
         <Routes>
           <Route path="/" element={<Navigate to="/today" replace />} />
-          <Route path="/today" element={<TodayDashboard user={user} supabase={supabase} />} />
+          <Route path="/today" element={<TodayDashboard user={user} setUser={setUser} supabase={supabase} />} />
           <Route path="/log/:stackId" element={<LoggingDetail user={user} supabase={supabase} />} />
           <Route path="/stats" element={<StatsDashboard user={user} supabase={supabase} />} />
           <Route path="/charts" element={<ChartsDashboard user={user} supabase={supabase} />} />

@@ -35,6 +35,36 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
     active: false
   });
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+
+  const guideSteps = [
+    {
+      title: "Welcome to Habit Stack! 🚀",
+      description: "Habit stacking works by anchoring new behaviors to your existing daily routines. Let's do a quick tour!",
+      icon: "rocket_launch"
+    },
+    {
+      title: "1. Stacks & Routines 📅",
+      description: "Your day is organized into three default stacks: Morning Stack, Afternoon Stack, and Evening Routine. Perform habits in sequence to make them atomic!",
+      icon: "dashboard"
+    },
+    {
+      title: "2. Track Different Types 📊",
+      description: "Check off simple habits (Vitamins), increment quantitative counters (Water Intake), or log exact time windows (Digital Sunset).",
+      icon: "fact_check"
+    },
+    {
+      title: "3. Streaks & Heatmaps 🔥",
+      description: "Complete all habits in a stack to build a perfect daily streak. Visual heatmap cells track your progress consistency over time.",
+      icon: "local_fire_department"
+    },
+    {
+      title: "4. Telegram Bot Integration 🤖",
+      description: "Chat with our Telegram Bot to log habits instantly on the go (using /log command), check stats, and receive smart, customizable reminders.",
+      icon: "robot_2"
+    }
+  ];
 
   // Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -146,7 +176,7 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
       ...(reminder.id ? { id: reminder.id } : {}),
       user_id: user.id,
       send_at: reminder.send_at,
-      days: JSON.stringify(reminder.days),
+      days: reminder.days,
       active: nextActive
     });
   };
@@ -167,7 +197,7 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
       ...(reminder.id ? { id: reminder.id } : {}),
       user_id: user.id,
       send_at: reminder.send_at,
-      days: JSON.stringify(nextDays),
+      days: nextDays,
       active: reminder.active
     });
   };
@@ -182,7 +212,7 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
       ...(reminder.id ? { id: reminder.id } : {}),
       user_id: user.id,
       send_at: sendAt,
-      days: JSON.stringify(reminder.days),
+      days: reminder.days,
       active: reminder.active
     });
   };
@@ -377,6 +407,26 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
           </div>
         </section>
 
+        {/* Help & Resources Section */}
+        <section className="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-3 shadow-sm">
+          <div className="flex items-center gap-2 text-on-surface">
+            <span className="material-symbols-outlined text-primary">help_outline</span>
+            <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Help & Resources</h3>
+          </div>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">New to Habit Stack? Read the guide to understand routines, habit types, and Telegram reminders.</p>
+          <button 
+            onClick={() => {
+              triggerHaptic('light');
+              setShowGuide(true);
+              setGuideStep(0);
+            }}
+            className="w-full bg-surface-variant border border-border-dark text-on-surface font-bold text-sm rounded-lg h-11 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+            Open User Guide
+          </button>
+        </section>
+
         {/* Habits list by categories */}
         <section className="flex flex-col gap-6">
           {categories.map((cat) => {
@@ -555,6 +605,58 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
                 {editingHabit ? 'Save Changes' : 'Create Habit'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showGuide && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background-dark/85 backdrop-blur-md">
+          <div className="w-full max-w-[340px] bg-surface-container border border-border-dark rounded-2xl p-6 flex flex-col items-center text-center gap-5 shadow-2xl animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-4xl">{guideSteps[guideStep].icon}</span>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <h3 className="font-headline-md text-headline-md text-on-surface font-bold">
+                {guideSteps[guideStep].title}
+              </h3>
+              <p className="font-body-base text-body-base text-on-surface-variant leading-relaxed">
+                {guideSteps[guideStep].description}
+              </p>
+            </div>
+
+            {/* Pagination dots */}
+            <div className="flex gap-1.5 justify-center my-1">
+              {guideSteps.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === guideStep ? 'bg-primary w-6' : 'bg-outline-variant/40'}`}
+                />
+              ))}
+            </div>
+
+            <div className="flex gap-3 w-full mt-2">
+              {guideStep > 0 && (
+                <button 
+                  onClick={() => setGuideStep(guideStep - 1)}
+                  className="flex-1 bg-surface-variant text-on-surface font-bold text-sm rounded-lg h-11 active:scale-95 transition-all border border-border-dark"
+                >
+                  Back
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  if (guideStep < guideSteps.length - 1) {
+                    setGuideStep(guideStep + 1);
+                  } else {
+                    setShowGuide(false);
+                  }
+                }}
+                className="flex-1 bg-primary text-background-dark font-bold text-sm rounded-lg h-11 active:scale-95 transition-all"
+              >
+                {guideStep === guideSteps.length - 1 ? 'Close Guide' : 'Next'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import BottomNavBar from '../components/BottomNavBar';
 
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function StatsDashboard({ user, supabase }: { user: any, supabase: any }) {
   const [habits, setHabits] = useState<any[]>([]);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
@@ -76,19 +83,19 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
         let current = 0;
         let checkDate = new Date();
         // check today
-        let checkDateStr = checkDate.toISOString().split('T')[0];
+        let checkDateStr = getLocalDateString(checkDate);
         let hasToday = completedDates.has(checkDateStr);
         
         // If not completed today, check if it was completed yesterday to maintain the streak
         if (!hasToday) {
           checkDate.setDate(checkDate.getDate() - 1);
-          checkDateStr = checkDate.toISOString().split('T')[0];
+          checkDateStr = getLocalDateString(checkDate);
         }
 
         while (completedDates.has(checkDateStr)) {
           current++;
           checkDate.setDate(checkDate.getDate() - 1);
-          checkDateStr = checkDate.toISOString().split('T')[0];
+          checkDateStr = getLocalDateString(checkDate);
         }
 
         // Compute longest streak (over the 30 day window)
@@ -96,7 +103,7 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
         let tempStreak = 0;
         let d = new Date(thirtyDaysAgo);
         for (let i = 0; i <= 30; i++) {
-          const dStr = d.toISOString().split('T')[0];
+          const dStr = getLocalDateString(d);
           if (completedDates.has(dStr)) {
             tempStreak++;
             longest = Math.max(longest, tempStreak);
@@ -131,8 +138,8 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
   for (let i = 0; i < 28; i++) {
     const d = new Date(startDay);
     d.setDate(d.getDate() + i);
-    const dStr = d.toISOString().split('T')[0];
-    const log = logs.find(l => l.log_date === dStr);
+    const dStr = getLocalDateString(d);
+    const log = logs.find((l: any) => l.log_date === dStr);
     
     let lvl = 0;
     if (log) {

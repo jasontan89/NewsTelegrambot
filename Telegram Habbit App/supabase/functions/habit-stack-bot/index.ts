@@ -63,6 +63,22 @@ bot.command('start', async (ctx) => {
       `• /stats - View your streaks\n\n` +
       `Or open the Web App directly via the button below to view visual insights!`
     );
+
+    // Set Menu Button dynamically for the user to point to Web App
+    try {
+      await ctx.setChatMenuButton({
+        menu_button: {
+          type: "web_app",
+          text: "Open App",
+          web_app: {
+            url: "https://jasontan89.github.io/NewsTelegrambot/"
+          }
+        }
+      });
+      console.log('Chat menu button set successfully');
+    } catch (e) {
+      console.error('Failed to set chat menu button:', e);
+    }
   } catch (err: any) {
     console.error('Error in /start:', err);
     await ctx.reply('Sorry, there was an error registering your account.');
