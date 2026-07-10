@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Correlation Dashboard - Habit Stack</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Chart.js for data visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#363942",
+                        "on-secondary-container": "#00311f",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-background": "#e0e2ed",
+                        "outline-variant": "#414755",
+                        "sleep": "#6366F1",
+                        "on-primary-container": "#00285c",
+                        "primary": "#adc6ff",
+                        "fitness": "#10B981",
+                        "secondary": "#4edea3",
+                        "inverse-surface": "#e0e2ed",
+                        "nutrition": "#F59E0B",
+                        "surface": "#10131b",
+                        "supplement": "#A855F7",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-highest": "#31353d",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed": "#002113",
+                        "surface-tint": "#adc6ff",
+                        "on-primary-fixed": "#001a41",
+                        "surface-container-lowest": "#0b0e16",
+                        "on-primary-fixed-variant": "#004493",
+                        "surface-dark": "#171717",
+                        "outline": "#8b90a0",
+                        "on-tertiary-container": "#4c1a00",
+                        "on-error": "#690005",
+                        "surface-variant": "#31353d",
+                        "tertiary-fixed": "#ffdbcc",
+                        "surface-container": "#1c2028",
+                        "secondary-container": "#00a572",
+                        "surface-container-high": "#272a32",
+                        "inverse-primary": "#005bc1",
+                        "border-dark": "#262626",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#003824",
+                        "secondary-fixed-dim": "#4edea3",
+                        "tertiary": "#ffb595",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary": "#002e69",
+                        "background-dark": "#0A0A0A",
+                        "on-surface-variant": "#c1c6d7",
+                        "on-tertiary": "#571e00",
+                        "primary-container": "#4b8eff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-container": "#ef6719",
+                        "on-tertiary-fixed-variant": "#7c2e00",
+                        "background": "#10131b",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary-fixed": "#351000",
+                        "surface-container-low": "#181c23",
+                        "surface-dim": "#10131b",
+                        "on-surface": "#e0e2ed",
+                        "tertiary-fixed-dim": "#ffb595",
+                        "inverse-on-surface": "#2d3039"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "element-gap": "0.75rem",
+                        "stack-gap": "1.5rem",
+                        "touch-target-min": "44px",
+                        "container-margin": "1.25rem",
+                        "telegram-bottom-safe": "56px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter", "sans-serif"],
+                        "mono-data": ["Geist", "monospace"],
+                        "headline-md": ["Geist", "sans-serif"],
+                        "label-caps": ["Geist", "sans-serif"],
+                        "stat-lg": ["Geist", "sans-serif"],
+                        "body-base": ["Inter", "sans-serif"],
+                        "stat-hero": ["Geist", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "mono-data": ["14px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "stat-lg": ["32px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "stat-hero": ["48px", { "lineHeight": "48px", "letterSpacing": "-0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262626;
+            border-radius: 4px;
+        }
+        
+        /* Ensures the canvas takes available space but respects aspect ratio */
+        #correlationChart {
+            max-height: 300px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark text-on-surface antialiased min-h-screen flex flex-col pt-14 pb-[calc(64px+56px)] overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-border-dark flex items-center justify-between px-container-margin h-14">
+<div class="flex items-center gap-2 hover:opacity-80 active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Habit Stack</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer transition-colors">filter_list</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col px-container-margin pt-6 gap-stack-gap w-full max-w-3xl mx-auto">
+<!-- Header Section -->
+<section class="flex flex-col gap-2">
+<h2 class="font-stat-hero text-stat-hero text-on-surface">Correlation Analysis</h2>
+<p class="font-body-base text-body-base text-on-surface-variant">Discover relationships between your habits.</p>
+</section>
+<!-- Variable Selection (Habit Pickers) -->
+<section class="flex flex-col gap-element-gap">
+<div class="flex flex-col sm:flex-row gap-element-gap">
+<!-- Variable 1 Picker -->
+<div class="flex-1 relative">
+<label class="font-label-caps text-label-caps text-outline-variant block mb-1 uppercase" for="var1">Variable 1 (Y-Axis L)</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-dark border border-border-dark rounded-lg py-3 px-4 font-body-base text-body-base text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors h-[44px]" id="var1">
+<option selected="" value="sleep">Sleep Hours</option>
+<option value="meditation">Meditation (mins)</option>
+<option value="water">Water Intake (L)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Variable 2 Picker -->
+<div class="flex-1 relative">
+<label class="font-label-caps text-label-caps text-outline-variant block mb-1 uppercase" for="var2">Variable 2 (Y-Axis R)</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-dark border border-border-dark rounded-lg py-3 px-4 font-body-base text-body-base text-on-surface focus:outline-none focus:border-fitness focus:ring-1 focus:ring-fitness transition-colors h-[44px]" id="var2">
+<option selected="" value="run">Run Distance (km)</option>
+<option value="weight">Weight Lifted (kg)</option>
+<option value="hrv">Morning HRV</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Insight Card (Bento Style) -->
+<section class="bg-surface-dark border border-border-dark rounded-xl p-5 flex items-start gap-4">
+<div class="bg-surface-container-highest p-2 rounded-full flex-shrink-0">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Strong Positive Correlation (r = 0.82)</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    When <span class="text-sleep font-medium">Sleep Hours</span> exceed 7.5, your <span class="text-fitness font-medium">Run Distance</span> typically increases by 15-20% the following day. Maintaining consistent sleep is highly predictive of peak physical performance.
+                </p>
+</div>
+</section>
+<!-- Dual-Axis Chart Canvas -->
+<section class="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-4">
+<div class="flex justify-between items-center mb-2">
+<h3 class="font-label-caps text-label-caps text-outline-variant uppercase">30-Day Trend Comparison</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-sleep"></div>
+<span class="font-mono-data text-mono-data text-on-surface-variant text-xs">Sleep (hrs)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-fitness"></div>
+<span class="font-mono-data text-mono-data text-on-surface-variant text-xs">Run (km)</span>
+</div>
+</div>
+</div>
+<div class="relative w-full h-64 sm:h-72">
+<canvas id="correlationChart"></canvas>
+</div>
+<div class="flex justify-between items-center mt-2 border-t border-border-dark pt-3">
+<span class="font-label-caps text-label-caps text-outline-variant uppercase">Date Range</span>
+<span class="font-mono-data text-mono-data text-on-surface">Oct 1 - Oct 30</span>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 pb-telegram-bottom-safe bg-surface-container/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-border-dark flex justify-around items-center h-16 px-2">
+<a class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 w-16" href="#">
+<span class="material-symbols-outlined">today</span>
+<span class="font-label-caps text-label-caps mt-1">Today</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 w-16" href="#">
+<span class="material-symbols-outlined">calendar_view_month</span>
+<span class="font-label-caps text-label-caps mt-1">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 w-16" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span class="font-label-caps text-label-caps mt-1">Charts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 w-16" href="#">
+<span class="material-symbols-outlined">query_stats</span>
+<span class="font-label-caps text-label-caps mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 w-16" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps mt-1">Setup</span>
+</a>
+</nav>
+<!-- Chart Initialization Script -->
+<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const ctx = document.getElementById('correlationChart').getContext('2d');
+            
+            // Mock Data for 30 days
+            const labels = Array.from({length: 30}, (_, i) => `Oct ${i+1}`);
+            
+            // Base sleep trend (slightly oscillating)
+            const sleepData = labels.map((_, i) => 6 + Math.sin(i / 3) * 1.5 + Math.random() * 0.5);
+            
+            // Run distance strongly correlated with sleep, with a small lag/randomness
+            const runData = sleepData.map(val => (val > 7 ? val * 0.8 + Math.random() * 2 : val * 0.4 + Math.random() * 1));
+
+            // Create gradient for sleep line
+            const sleepGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            sleepGradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)'); // sleep color tint
+            sleepGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Sleep Hours',
+                            data: sleepData,
+                            borderColor: '#6366F1', // sleep color
+                            backgroundColor: sleepGradient,
+                            borderWidth: 2,
+                            pointBackgroundColor: '#10131b',
+                            pointBorderColor: '#6366F1',
+                            pointBorderWidth: 1,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.4, // smooth curves
+                            yAxisID: 'y',
+                            fill: true
+                        },
+                        {
+                            label: 'Run Distance (km)',
+                            data: runData,
+                            borderColor: '#10B981', // fitness color
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#10131b',
+                            pointBorderColor: '#10B981',
+                            pointBorderWidth: 1,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.4, // smooth curves
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Using custom HTML legend above
+                        },
+                        tooltip: {
+                            backgroundColor: '#262626',
+                            titleColor: '#e0e2ed',
+                            bodyColor: '#c1c6d7',
+                            borderColor: '#414755',
+                            borderWidth: 1,
+                            padding: 10,
+                            titleFont: { family: 'Geist', size: 12, weight: 'bold' },
+                            bodyFont: { family: 'Geist', size: 14 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#8b90a0',
+                                font: { family: 'Geist', size: 10 },
+                                maxTicksLimit: 6,
+                                align: 'inner'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: {
+                                color: '#262626', // Faint grid lines
+                                drawBorder: false,
+                                tickLength: 0
+                            },
+                            ticks: {
+                                color: '#6366F1', // Match dataset color
+                                font: { family: 'Geist', size: 10 },
+                                stepSize: 2,
+                                callback: function(value) {
+                                    return value + 'h';
+                                }
+                            },
+                            suggestedMin: 4,
+                            suggestedMax: 10
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                display: false, // Don't draw grid lines for second axis to avoid clutter
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#10B981', // Match dataset color
+                                font: { family: 'Geist', size: 10 },
+                                stepSize: 2,
+                                callback: function(value) {
+                                    return value + 'km';
+                                }
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 12
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body></html>

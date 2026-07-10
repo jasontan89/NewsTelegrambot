@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Colors */
+  --color-surface: #10131b;
+  --color-surface-dim: #10131b;
+  --color-surface-bright: #363942;
+  --color-surface-container-lowest: #0b0e16;
+  --color-surface-container-low: #181c23;
+  --color-surface-container: #1c2028;
+  --color-surface-container-high: #272a32;
+  --color-surface-container-highest: #31353d;
+  --color-on-surface: #e0e2ed;
+  --color-on-surface-variant: #c1c6d7;
+  --color-inverse-surface: #e0e2ed;
+  --color-inverse-on-surface: #2d3039;
+  --color-outline: #8b90a0;
+  --color-outline-variant: #414755;
+  --color-surface-tint: #adc6ff;
+  --color-primary: #adc6ff;
+  --color-on-primary: #002e69;
+  --color-primary-container: #4b8eff;
+  --color-on-primary-container: #00285c;
+  --color-inverse-primary: #005bc1;
+  --color-secondary: #4edea3;
+  --color-on-secondary: #003824;
+  --color-secondary-container: #00a572;
+  --color-on-secondary-container: #00311f;
+  --color-tertiary: #ffb595;
+  --color-on-tertiary: #571e00;
+  --color-tertiary-container: #ef6719;
+  --color-on-tertiary-container: #4c1a00;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-primary-fixed: #d8e2ff;
+  --color-primary-fixed-dim: #adc6ff;
+  --color-on-primary-fixed: #001a41;
+  --color-on-primary-fixed-variant: #004493;
+  --color-secondary-fixed: #6ffbbe;
+  --color-secondary-fixed-dim: #4edea3;
+  --color-on-secondary-fixed: #002113;
+  --color-on-secondary-fixed-variant: #005236;
+  --color-tertiary-fixed: #ffdbcc;
+  --color-tertiary-fixed-dim: #ffb595;
+  --color-on-tertiary-fixed: #351000;
+  --color-on-tertiary-fixed-variant: #7c2e00;
+  
+  /* Brand additions */
+  --color-background: #0a0a0a;
+  --color-on-background: #e0e2ed;
+  --color-surface-variant: #31353d;
+  --color-fitness: #10B981;
+  --color-nutrition: #F59E0B;
+  --color-supplement: #A855F7;
+  --color-sleep: #6366F1;
+  --color-background-dark: #0A0A0A;
+  --color-surface-dark: #171717;
+  --color-border-dark: #262626;
+
+  /* Typography */
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-display: 'Geist', 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'Geist Mono', monospace;
+
+  /* Spacing */
+  --spacing-container-margin: 1.25rem;
+  --spacing-stack-gap: 1.5rem;
+  --spacing-element-gap: 0.75rem;
+  --spacing-touch-target-min: 44px;
+  --spacing-telegram-bottom-safe: 56px;
+
+  /* Border Radius */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-sans);
+  background-color: var(--color-background-dark);
+  color: var(--color-on-background);
+  /* Use Telegram's Theme Parameters if available */
+  background-color: var(--tg-theme-bg-color, var(--color-background-dark));
+  color: var(--tg-theme-text-color, var(--color-on-background));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Typography Utility Classes */
+.text-stat-hero {
+  font-family: var(--font-family-display);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 48px;
+  letter-spacing: -0.05em;
+}
+
+.text-stat-lg {
+  font-family: var(--font-family-display);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: -0.02em;
+}
+
+.text-headline-md {
+  font-family: var(--font-family-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.text-body-base {
+  font-family: var(--font-family-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.text-body-sm {
+  font-family: var(--font-family-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.text-label-caps {
+  font-family: var(--font-family-display);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.text-mono-data {
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 14px;
+}
+
+/* Card Utility */
+.card {
+  background-color: var(--color-surface-dark);
+  border: 1px solid var(--color-border-dark);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-element-gap);
+}

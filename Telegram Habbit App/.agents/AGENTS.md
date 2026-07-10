@@ -1,0 +1,3 @@
+- **Data Storage & State**: Never use `localStorage` or `sessionStorage` in the frontend (React state + Supabase only).
+- **Timezones**: All dates must be handled in the user's stored timezone, not UTC display.
+- **Security & Supabase**: All Supabase writes go through RLS-scoped calls. The service role key must only be used inside Edge Functions and never shipped to the client.

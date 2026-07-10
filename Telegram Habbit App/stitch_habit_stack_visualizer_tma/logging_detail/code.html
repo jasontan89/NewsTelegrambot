@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Stack Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#363942",
+                        "on-secondary-container": "#00311f",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-background": "#e0e2ed",
+                        "outline-variant": "#414755",
+                        "sleep": "#6366F1",
+                        "on-primary-container": "#00285c",
+                        "primary": "#adc6ff",
+                        "fitness": "#10B981",
+                        "secondary": "#4edea3",
+                        "inverse-surface": "#e0e2ed",
+                        "nutrition": "#F59E0B",
+                        "surface": "#10131b",
+                        "supplement": "#A855F7",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-highest": "#31353d",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed": "#002113",
+                        "surface-tint": "#adc6ff",
+                        "on-primary-fixed": "#001a41",
+                        "surface-container-lowest": "#0b0e16",
+                        "on-primary-fixed-variant": "#004493",
+                        "surface-dark": "#171717",
+                        "outline": "#8b90a0",
+                        "on-tertiary-container": "#4c1a00",
+                        "on-error": "#690005",
+                        "surface-variant": "#31353d",
+                        "tertiary-fixed": "#ffdbcc",
+                        "surface-container": "#1c2028",
+                        "secondary-container": "#00a572",
+                        "surface-container-high": "#272a32",
+                        "inverse-primary": "#005bc1",
+                        "border-dark": "#262626",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#003824",
+                        "secondary-fixed-dim": "#4edea3",
+                        "tertiary": "#ffb595",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary": "#002e69",
+                        "background-dark": "#0A0A0A",
+                        "on-surface-variant": "#c1c6d7",
+                        "on-tertiary": "#571e00",
+                        "primary-container": "#4b8eff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-container": "#ef6719",
+                        "on-tertiary-fixed-variant": "#7c2e00",
+                        "background": "#10131b",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary-fixed": "#351000",
+                        "surface-container-low": "#181c23",
+                        "surface-dim": "#10131b",
+                        "on-surface": "#e0e2ed",
+                        "tertiary-fixed-dim": "#ffb595",
+                        "inverse-on-surface": "#2d3039"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "element-gap": "0.75rem",
+                        "stack-gap": "1.5rem",
+                        "touch-target-min": "44px",
+                        "container-margin": "1.25rem",
+                        "telegram-bottom-safe": "56px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter"],
+                        "mono-data": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "label-caps": ["Geist"],
+                        "stat-lg": ["Geist"],
+                        "body-base": ["Inter"],
+                        "stat-hero": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "mono-data": ["14px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "stat-lg": ["32px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "stat-hero": ["48px", { "lineHeight": "48px", "letterSpacing": "-0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Custom Checkbox styles for specific categories */
+        .checkbox-sleep:checked {
+            background-color: theme('colors.sleep');
+            border-color: theme('colors.sleep');
+        }
+        .checkbox-supplement:checked {
+            background-color: theme('colors.supplement');
+            border-color: theme('colors.supplement');
+        }
+        .checkbox-fitness:checked {
+            background-color: theme('colors.fitness');
+            border-color: theme('colors.fitness');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark text-on-surface font-body-base antialiased min-h-screen pb-telegram-bottom-safe flex flex-col">
+<!-- Top Navigation AppBar - Using specific JSON styles mapped to intents -->
+<header class="fixed top-0 w-full z-50 bg-background-dark/80 backdrop-blur-md border-b border-border-dark">
+<div class="flex items-center justify-between px-container-margin h-14 w-full">
+<button aria-label="Back" class="text-primary-fixed-dim hover:opacity-80 active:scale-95 transition-transform flex items-center justify-center w-[44px] h-[44px] -ml-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary-fixed-dim tracking-tight">Evening Routine</h1>
+<div class="w-[44px]"></div> <!-- Spacer for center alignment -->
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-14 px-container-margin pt-6 pb-8 space-y-stack-gap overflow-y-auto hide-scrollbar">
+<!-- Context Header -->
+<div class="space-y-1">
+<p class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Today, Oct 24</p>
+<div class="flex items-center justify-between">
+<h2 class="font-stat-lg text-stat-lg text-on-surface">Log Habits</h2>
+<!-- Radial Cohesion Gauge -->
+<div class="relative w-12 h-12 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+<path class="text-surface-dark stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
+<path class="text-primary-fixed-dim stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="60, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<span class="absolute font-mono-data text-mono-data text-primary-fixed-dim">60%</span>
+</div>
+</div>
+</div>
+<!-- Input Cards Stack -->
+<div class="space-y-element-gap">
+<!-- Boolean Habit Card (Sleep Category) -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-4 flex items-center justify-between transition-colors duration-300" id="card-read">
+<div class="flex items-center space-x-3">
+<div class="w-3 h-3 rounded-full bg-sleep flex-shrink-0"></div>
+<div>
+<h3 class="font-headline-md text-body-base font-semibold text-on-surface">Read Fiction</h3>
+<p class="font-body-sm text-body-sm text-outline-variant mt-0.5">30 mins minimum</p>
+</div>
+</div>
+<div class="flex items-center justify-center min-w-touch-target-min min-h-touch-target-min">
+<input aria-label="Mark Read Fiction as done" class="w-8 h-8 rounded border-2 border-outline-variant bg-transparent checkbox-sleep focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all duration-200" id="check-read" type="checkbox"/>
+</div>
+</div>
+<!-- Numeric Stepper Habit Card (Supplement Category) -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-3">
+<div class="w-3 h-3 rounded-full bg-supplement flex-shrink-0"></div>
+<div>
+<h3 class="font-headline-md text-body-base font-semibold text-on-surface">Magnesium</h3>
+<p class="font-body-sm text-body-sm text-outline-variant mt-0.5">Glycinate before bed</p>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between bg-background-dark/50 rounded-lg p-2 border border-border-dark/50">
+<button aria-label="Decrease" class="w-[44px] h-[44px] flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">remove</span>
+</button>
+<div class="flex items-baseline space-x-1">
+<span class="font-mono-data text-[24px] font-semibold text-on-surface">400</span>
+<span class="font-mono-data text-body-sm text-outline">mg</span>
+</div>
+<button aria-label="Increase" class="w-[44px] h-[44px] flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">add</span>
+</button>
+</div>
+</div>
+<!-- Time Window Habit Card (Sleep Category) -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-3">
+<div class="w-3 h-3 rounded-full bg-sleep flex-shrink-0"></div>
+<div>
+<h3 class="font-headline-md text-body-base font-semibold text-on-surface">Digital Sunset</h3>
+<p class="font-body-sm text-body-sm text-outline-variant mt-0.5">No screens time block</p>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col">
+<label class="font-label-caps text-[10px] text-outline mb-1 pl-1">START TIME</label>
+<input class="bg-background-dark border border-border-dark rounded-lg px-3 py-3 font-mono-data text-body-base text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[44px]" type="time" value="21:30"/>
+</div>
+<div class="flex flex-col">
+<label class="font-label-caps text-[10px] text-outline mb-1 pl-1">END TIME</label>
+<input class="bg-background-dark border border-border-dark rounded-lg px-3 py-3 font-mono-data text-body-base text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[44px]" type="time" value="22:30"/>
+</div>
+</div>
+</div>
+<!-- Optional Note Field -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-3 mt-4">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline text-[18px]" style="font-variation-settings: 'FILL' 0;">notes</span>
+<h3 class="font-body-sm text-body-sm font-medium text-outline">Evening Notes (Optional)</h3>
+</div>
+<textarea class="w-full bg-background-dark border border-border-dark rounded-lg p-3 font-body-sm text-body-sm text-on-surface placeholder-outline-variant focus:border-primary-fixed-dim focus:ring-0 outline-none resize-none" placeholder="Any reflections or variations tonight?" rows="3"></textarea>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Shell is Suppressed due to Transactional/Focused intent -->
+<script>
+        // Simple vanilla JS for the checkbox subtle background tint interaction
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkRead = document.getElementById('check-read');
+            const cardRead = document.getElementById('card-read');
+
+            if(checkRead && cardRead) {
+                checkRead.addEventListener('change', (e) => {
+                    if(e.target.checked) {
+                        // Apply subtle tint of sleep color (#6366F1) at very low opacity
+                        cardRead.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
+                        cardRead.style.borderColor = 'rgba(99, 102, 241, 0.2)';
+                        
+                        // Simulate Haptic Feedback
+                        if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                        }
+                    } else {
+                        // Revert to original
+                        cardRead.style.backgroundColor = '';
+                        cardRead.style.borderColor = '';
+                    }
+                });
+            }
+        });
+    </script>
+</body></html>

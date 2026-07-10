@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insights &amp; Stack Cohesion</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+                "surface-bright": "#363942",
+                "on-secondary-container": "#00311f",
+                "on-secondary-fixed-variant": "#005236",
+                "on-background": "#e0e2ed",
+                "outline-variant": "#414755",
+                "sleep": "#6366F1",
+                "on-primary-container": "#00285c",
+                "primary": "#adc6ff",
+                "fitness": "#10B981",
+                "secondary": "#4edea3",
+                "inverse-surface": "#e0e2ed",
+                "nutrition": "#F59E0B",
+                "surface": "#10131b",
+                "supplement": "#A855F7",
+                "on-error-container": "#ffdad6",
+                "surface-container-highest": "#31353d",
+                "error-container": "#93000a",
+                "on-secondary-fixed": "#002113",
+                "surface-tint": "#adc6ff",
+                "on-primary-fixed": "#001a41",
+                "surface-container-lowest": "#0b0e16",
+                "on-primary-fixed-variant": "#004493",
+                "surface-dark": "#171717",
+                "outline": "#8b90a0",
+                "on-tertiary-container": "#4c1a00",
+                "on-error": "#690005",
+                "surface-variant": "#31353d",
+                "tertiary-fixed": "#ffdbcc",
+                "surface-container": "#1c2028",
+                "secondary-container": "#00a572",
+                "surface-container-high": "#272a32",
+                "inverse-primary": "#005bc1",
+                "border-dark": "#262626",
+                "error": "#ffb4ab",
+                "on-secondary": "#003824",
+                "secondary-fixed-dim": "#4edea3",
+                "tertiary": "#ffb595",
+                "primary-fixed": "#d8e2ff",
+                "on-primary": "#002e69",
+                "background-dark": "#0A0A0A",
+                "on-surface-variant": "#c1c6d7",
+                "on-tertiary": "#571e00",
+                "primary-container": "#4b8eff",
+                "primary-fixed-dim": "#adc6ff",
+                "tertiary-container": "#ef6719",
+                "on-tertiary-fixed-variant": "#7c2e00",
+                "background": "#10131b",
+                "secondary-fixed": "#6ffbbe",
+                "on-tertiary-fixed": "#351000",
+                "surface-container-low": "#181c23",
+                "surface-dim": "#10131b",
+                "on-surface": "#e0e2ed",
+                "tertiary-fixed-dim": "#ffb595",
+                "inverse-on-surface": "#2d3039"
+            },
+            borderRadius: {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            spacing: {
+                "element-gap": "0.75rem",
+                "stack-gap": "1.5rem",
+                "touch-target-min": "44px",
+                "container-margin": "1.25rem",
+                "telegram-bottom-safe": "56px"
+            },
+            fontFamily: {
+                "body-sm": ["Inter"],
+                "mono-data": ["Geist"],
+                "headline-md": ["Geist"],
+                "label-caps": ["Geist"],
+                "stat-lg": ["Geist"],
+                "body-base": ["Inter"],
+                "stat-hero": ["Geist"]
+            },
+            fontSize: {
+                "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                "mono-data": ["14px", { "lineHeight": "14px", "fontWeight": "500" }],
+                "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                "stat-lg": ["32px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                "body-base": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                "stat-hero": ["48px", { "lineHeight": "48px", "letterSpacing": "-0.05em", "fontWeight": "700" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0A0A0A; /* background-dark */
+        }
+        /* Simple animation for gauge */
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 88; /* roughly 72% of 314 circumference */
+            }
+        }
+        .gauge-progress {
+            stroke-dasharray: 314;
+            stroke-dashoffset: 314;
+            animation: dash 1.5s ease-out forwards;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface antialiased min-h-screen flex flex-col">
+<!-- TopAppBar from JSON -->
+<header class="fixed top-0 w-full z-50 bg-background dark:bg-background-dark/80 backdrop-blur-md border-b border-border-dark flex items-center justify-between px-container-margin h-14 transition-transform active:scale-95">
+<div class="flex items-center gap-2 text-primary dark:text-primary-fixed-dim hover:opacity-80">
+<span class="material-symbols-outlined font-headline-md text-headline-md" data-icon="analytics">analytics</span>
+<h1 class="font-headline-md text-headline-md font-bold">Habit Stack</h1>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-[calc(3.5rem+1.5rem)] pb-[calc(4rem+56px+1.5rem)] px-container-margin flex flex-col gap-stack-gap overflow-y-auto">
+<!-- Radial Gauge Section -->
+<section class="flex flex-col items-center justify-center pt-4">
+<div class="relative w-48 h-48 flex items-center justify-center">
+<!-- Background Track -->
+<svg class="absolute inset-0 w-full h-full transform -rotate-90" viewbox="0 0 120 120">
+<circle class="stroke-surface-dark" cx="60" cy="60" fill="none" r="50" stroke-linecap="round" stroke-width="8"></circle>
+<!-- Progress Track (72% Cohesion Example) -->
+<circle class="stroke-primary gauge-progress" cx="60" cy="60" fill="none" r="50" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<!-- Center Stats -->
+<div class="text-center z-10 flex flex-col items-center">
+<span class="font-stat-hero text-stat-hero text-on-surface">72<span class="font-stat-lg text-stat-lg">%</span></span>
+<span class="font-label-caps text-label-caps text-on-surface-variant mt-1">Stack Cohesion</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center max-w-xs mt-4">
+                Percentage of days the full stack was completed together over the last 30 days.
+            </p>
+</section>
+<!-- Insights Cards Section -->
+<section class="flex flex-col gap-stack-gap mt-4">
+<!-- Insight 1: Consistency Alert -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Consistency Alert</h2>
+</div>
+<p class="font-body-base text-body-base text-on-surface-variant">
+                    Your <span class="text-primary font-medium">Morning Stack</span> is most vulnerable on <span class="text-error font-medium">Saturdays</span>. Completion drops by 45% compared to weekdays.
+                </p>
+</div>
+<!-- Insight 2: Pattern Found -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="monitoring" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Pattern Found</h2>
+</div>
+<p class="font-body-base text-body-base text-on-surface-variant">
+<span class="text-supplement font-medium">Supplements</span> compliance drops significantly when you log <span class="text-sleep font-medium">&lt; 7 hours of sleep</span>.
+                </p>
+</div>
+<!-- Insight 3: Positive Trend -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-fitness" data-icon="trending_up" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Upward Trend</h2>
+</div>
+<p class="font-body-base text-body-base text-on-surface-variant">
+<span class="text-fitness font-medium">Fitness</span> habits show a strong correlation with <span class="text-nutrition font-medium">Nutrition</span> logging. When one is completed, the other follows 88% of the time.
+                </p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar from JSON -->
+<nav class="fixed bottom-0 w-full z-50 pb-telegram-bottom-safe bg-surface-container/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg flex justify-around items-center h-16 px-2 md:hidden">
+<!-- Tab 1: Today (Inactive) -->
+<div class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 min-w-[touch-target-min] min-h-[touch-target-min]">
+<span class="material-symbols-outlined mb-1" data-icon="today">today</span>
+<span class="font-label-caps text-label-caps">Today</span>
+</div>
+<!-- Tab 2: Stats (Inactive) -->
+<div class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 min-w-[touch-target-min] min-h-[touch-target-min]">
+<span class="material-symbols-outlined mb-1" data-icon="calendar_view_month">calendar_view_month</span>
+<span class="font-label-caps text-label-caps">Stats</span>
+</div>
+<!-- Tab 3: Charts (Inactive) -->
+<div class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 min-w-[touch-target-min] min-h-[touch-target-min]">
+<span class="material-symbols-outlined mb-1" data-icon="insights">insights</span>
+<span class="font-label-caps text-label-caps">Charts</span>
+</div>
+<!-- Tab 4: Insights (ACTIVE) -->
+<div class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 min-w-[touch-target-min] min-h-[touch-target-min]">
+<span class="material-symbols-outlined mb-1" data-icon="query_stats" style="font-variation-settings: 'FILL' 1;">query_stats</span>
+<span class="font-label-caps text-label-caps">Insights</span>
+</div>
+<!-- Tab 5: Setup (Inactive) -->
+<div class="flex flex-col items-center justify-center text-outline dark:text-outline-variant hover:text-primary-container dark:hover:text-primary-fixed active:scale-90 transition-all duration-150 min-w-[touch-target-min] min-h-[touch-target-min]">
+<span class="material-symbols-outlined mb-1" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps">Setup</span>
+</div>
+</nav>
+</body></html>
