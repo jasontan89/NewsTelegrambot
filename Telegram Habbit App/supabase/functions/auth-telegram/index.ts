@@ -141,7 +141,7 @@ serve(async (req) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7), // 1 week
     };
 
-    const jwtSecret = Deno.env.get('SUPABASE_JWT_SECRET') || 'super-secret-jwt-token-with-at-least-32-characters-long';
+    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET') || 'super-secret-jwt-token-with-at-least-32-characters-long';
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
