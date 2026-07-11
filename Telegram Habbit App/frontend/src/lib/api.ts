@@ -121,6 +121,13 @@ export async function seedMockData(supabase: SupabaseClient, userId: string) {
       { stack_id: eveningId, habit_id: habitData[4].id, sort_order: 2 },
       { stack_id: eveningId, habit_id: habitData[5].id, sort_order: 3 }
     ]);
+
+    // Create default stack reminders
+    await supabase.from('hs_reminders').insert([
+      { user_id: userId, stack_id: morningId, send_at: '12:00:00', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], active: true },
+      { user_id: userId, stack_id: afternoonId, send_at: '18:00:00', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], active: true },
+      { user_id: userId, stack_id: eveningId, send_at: '22:00:00', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], active: true }
+    ]);
   } catch (e) {
     console.error('Error seeding data:', e);
   } finally {

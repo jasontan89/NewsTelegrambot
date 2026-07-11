@@ -130,15 +130,27 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
 
   const activeHabit = habits.find(h => h.id === selectedHabitId);
 
-  // Heatmap helper: generate array of last 28 days (4 weeks)
+  // Heatmap helper: align cells from Monday to Sunday of the current week (approx 4 weeks)
   const heatmapCells = [];
+  
   const startDay = new Date();
-  startDay.setDate(startDay.getDate() - 27); // 4 weeks ago
+  startDay.setDate(startDay.getDate() - 27);
+  const dayOfWeek = startDay.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  startDay.setDate(startDay.getDate() - diffToMonday);
+  startDay.setHours(0, 0, 0, 0);
 
-  for (let i = 0; i < 28; i++) {
-    const d = new Date(startDay);
-    d.setDate(d.getDate() + i);
-    const dStr = getLocalDateString(d);
+  const endDay = new Date();
+  const todayDay = endDay.getDay();
+  const diffToSunday = todayDay === 0 ? 0 : 7 - todayDay;
+  endDay.setDate(endDay.getDate() + diffToSunday);
+  endDay.setHours(0, 0, 0, 0);
+
+  const curr = new Date(startDay);
+  curr.setHours(0, 0, 0, 0);
+
+  while (curr.getTime() <= endDay.getTime()) {
+    const dStr = getLocalDateString(curr);
     const log = logs.find((l: any) => l.log_date === dStr);
     
     let lvl = 0;
@@ -150,6 +162,7 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
       } else if (activeHabit?.habit_type === 'time_window' && log.start_time) lvl = 5;
     }
     heatmapCells.push({ date: dStr, lvl });
+    curr.setDate(curr.getDate() + 1);
   }
 
   // Group cells by week for the CSS Grid Column flow

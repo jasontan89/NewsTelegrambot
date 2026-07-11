@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import BottomNavBar from '../components/BottomNavBar';
 import { seedMockData } from '../lib/api';
 
@@ -19,8 +19,10 @@ interface Stack {
   name: string;
 }
 
-interface Reminder {
+interface StackReminder {
   id?: string;
+  stack_id: string;
+  stack_name: string;
   send_at: string;
   days: string[];
   active: boolean;
@@ -29,11 +31,10 @@ interface Reminder {
 export default function SetupDashboard({ user, supabase }: { user: any, supabase: any }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [stacks, setStacks] = useState<Stack[]>([]);
-  const [reminder, setReminder] = useState<Reminder>({
-    send_at: '08:00:00',
-    days: ['mon', 'tue', 'wed', 'thu', 'fri'],
-    active: false
-  });
+  const [reminders, setReminders] = useState<StackReminder[]>([]);
+  const [isEditingReminderId, setIsEditingReminderId] = useState<string | null>(null);
+  const [archivedHabits, setArchivedHabits] = useState<any[]>([]);
+  const [restoringHabitId, setRestoringHabitId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
@@ -69,7 +70,6 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
   // Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [isEditingTime, setIsEditingTime] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -80,6 +80,12 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
     color: 'fitness',
     stack_id: ''
   });
+
+  const suggestions = useMemo(() => {
+    if (!formData.name.trim() || editingHabit) return [];
+    const query = formData.name.toLowerCase();
+    return archivedHabits.filter((h: any) => h.name.toLowerCase().includes(query));
+  }, [formData.name, archivedHabits, editingHabit]);
 
   const loadData = async () => {
     try {
@@ -119,30 +125,38 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
       }));
       setHabits(parsedHabits);
 
-      // Fetch global reminders
+      // Fetch archived habits
+      const { data: archivedData } = await supabase
+        .from('hs_habits')
+        .select('id, name, category, habit_type, unit, target_value, color')
+        .eq('user_id', user.id)
+        .eq('archived', true);
+      setArchivedHabits(archivedData || []);
+
+      // Fetch reminders for the user
       const { data: reminderData } = await supabase
         .from('hs_reminders')
         .select('*')
-        .eq('user_id', user.id)
-        .limit(1);
+        .eq('user_id', user.id);
 
-      if (reminderData && reminderData.length > 0) {
-        let parsedDays: string[] = [];
-        try {
-          parsedDays = typeof reminderData[0].days === 'string' 
-            ? JSON.parse(reminderData[0].days) 
-            : reminderData[0].days || [];
-        } catch(e) {
-          parsedDays = reminderData[0].days || [];
+      const parsedReminders = (stacksData || []).map((stack: any) => {
+        const found = reminderData?.find((r: any) => r.stack_id === stack.id);
+        let parsedDays: string[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+        if (found) {
+          try {
+            parsedDays = typeof found.days === 'string' ? JSON.parse(found.days) : found.days || [];
+          } catch(e) {}
         }
-
-        setReminder({
-          id: reminderData[0].id,
-          send_at: reminderData[0].send_at,
+        return {
+          id: found?.id,
+          stack_id: stack.id,
+          stack_name: stack.name,
+          send_at: found?.send_at || (stack.name.toLowerCase().includes('morning') ? '12:00:00' : stack.name.toLowerCase().includes('afternoon') ? '18:00:00' : '22:00:00'),
           days: parsedDays,
-          active: reminderData[0].active
-        });
-      }
+          active: found?.active ?? false
+        };
+      });
+      setReminders(parsedReminders);
     } catch (err) {
       console.error(err);
     } finally {
@@ -166,69 +180,95 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
   };
 
   // Reminder updates
-  const handleToggleReminder = async () => {
+  const handleToggleReminder = async (stackId: string) => {
     triggerHaptic('medium');
-    const nextActive = !reminder.active;
-    const nextReminder = { ...reminder, active: nextActive };
-    setReminder(nextReminder);
+    const updated = reminders.map(r => {
+      if (r.stack_id === stackId) {
+        const nextActive = !r.active;
+        
+        supabase.from('hs_reminders').upsert({
+          ...(r.id ? { id: r.id } : {}),
+          user_id: user.id,
+          stack_id: r.stack_id,
+          send_at: r.send_at,
+          days: r.days,
+          active: nextActive
+        }).then(() => {
+          if (!r.id) loadData();
+        });
 
-    await supabase.from('hs_reminders').upsert({
-      ...(reminder.id ? { id: reminder.id } : {}),
-      user_id: user.id,
-      send_at: reminder.send_at,
-      days: reminder.days,
-      active: nextActive
+        return { ...r, active: nextActive };
+      }
+      return r;
     });
+    setReminders(updated);
   };
 
-  const handleDayToggle = async (day: string) => {
+  const handleDayToggle = async (stackId: string, day: string) => {
     triggerHaptic('light');
-    let nextDays = [...reminder.days];
-    if (nextDays.includes(day)) {
-      nextDays = nextDays.filter(d => d !== day);
-    } else {
-      nextDays.push(day);
-    }
+    const updated = reminders.map(r => {
+      if (r.stack_id === stackId) {
+        let nextDays = [...r.days];
+        if (nextDays.includes(day)) {
+          nextDays = nextDays.filter(d => d !== day);
+        } else {
+          nextDays.push(day);
+        }
 
-    const nextReminder = { ...reminder, days: nextDays };
-    setReminder(nextReminder);
+        supabase.from('hs_reminders').upsert({
+          ...(r.id ? { id: r.id } : {}),
+          user_id: user.id,
+          stack_id: r.stack_id,
+          send_at: r.send_at,
+          days: nextDays,
+          active: r.active
+        }).then(() => {
+          if (!r.id) loadData();
+        });
 
-    await supabase.from('hs_reminders').upsert({
-      ...(reminder.id ? { id: reminder.id } : {}),
-      user_id: user.id,
-      send_at: reminder.send_at,
-      days: nextDays,
-      active: reminder.active
+        return { ...r, days: nextDays };
+      }
+      return r;
     });
+    setReminders(updated);
   };
 
-  const handleTimeChange = async (time: string) => {
+  const handleTimeChange = async (stackId: string, time: string) => {
     triggerHaptic('light');
     const sendAt = time.includes(':') && time.split(':').length === 2 ? `${time}:00` : time;
-    const nextReminder = { ...reminder, send_at: sendAt };
-    setReminder(nextReminder);
+    const updated = reminders.map(r => {
+      if (r.stack_id === stackId) {
+        supabase.from('hs_reminders').upsert({
+          ...(r.id ? { id: r.id } : {}),
+          user_id: user.id,
+          stack_id: r.stack_id,
+          send_at: sendAt,
+          days: r.days,
+          active: r.active
+        }).then(() => {
+          if (!r.id) loadData();
+        });
 
-    await supabase.from('hs_reminders').upsert({
-      ...(reminder.id ? { id: reminder.id } : {}),
-      user_id: user.id,
-      send_at: sendAt,
-      days: reminder.days,
-      active: reminder.active
+        return { ...r, send_at: sendAt };
+      }
+      return r;
     });
+    setReminders(updated);
   };
 
   // Habit edits & archiving
   const handleOpenAdd = () => {
     triggerHaptic('light');
     setEditingHabit(null);
+    setRestoringHabitId(null);
     setFormData({
       name: '',
       category: 'fitness',
       habit_type: 'boolean',
       unit: '',
       target_value: '',
-      color: 'fitness',
-      stack_id: stacks[0]?.id || ''
+      color: 'primary',
+      stack_id: ''
     });
     setIsModalOpen(true);
   };
@@ -253,6 +293,7 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
     // Optimistic update
     setHabits(habits.filter(h => h.id !== habitId));
     await supabase.from('hs_habits').update({ archived: true }).eq('id', habitId);
+    await loadData(); // refresh archived list as well
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -278,6 +319,12 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
       if (editingHabit) {
         habitId = editingHabit.id;
         await supabase.from('hs_habits').update(payload).eq('id', habitId);
+      } else if (restoringHabitId) {
+        habitId = restoringHabitId;
+        await supabase.from('hs_habits').update({
+          ...payload,
+          archived: false
+        }).eq('id', habitId);
       } else {
         const { data } = await supabase.from('hs_habits').insert(payload).select().single();
         if (data) habitId = data.id;
@@ -321,7 +368,6 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
 
   // Group habits by category
   const categories = ['fitness', 'nutrition', 'supplement', 'sleep'];
-  const formattedTime = reminder.send_at.split(':').slice(0, 2).join(':');
 
   return (
     <>
@@ -344,64 +390,71 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
           <p className="font-body-sm text-body-sm text-on-surface-variant">Configure your habits, stacks, and reminder settings.</p>
         </section>
 
-        {/* Global Reminders Settings */}
+        {/* Stack Reminders Settings */}
         <section className="bg-surface-dark border border-border-dark rounded-xl p-5 flex flex-col gap-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-on-surface">
-              <span className={`material-symbols-outlined ${reminder.active ? 'text-primary' : 'text-outline'}`} style={{ fontVariationSettings: reminder.active ? "'FILL' 1" : "'FILL' 0" }}>notifications_active</span>
-              <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Global Reminders</h3>
-            </div>
-            <div 
-              onClick={handleToggleReminder}
-              className={`w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-200 ${reminder.active ? 'bg-primary' : 'bg-surface-container-highest'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 rounded-full bg-background-dark shadow-sm transition-all duration-200 ${reminder.active ? 'right-1' : 'left-1'}`}></div>
-            </div>
+          <div className="flex items-center gap-2 text-on-surface">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>notifications_active</span>
+            <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Stack Reminders</h3>
           </div>
 
-          <div className="flex flex-col items-center py-2 relative">
-            {isEditingTime ? (
-              <div className="flex items-center gap-2">
-                <input 
-                  type="time" 
-                  value={formattedTime}
-                  onChange={(e) => handleTimeChange(e.target.value)}
-                  className="bg-surface border border-border-dark rounded-lg px-3 py-2 font-mono-data text-body-base text-on-surface focus:border-primary focus:ring-0 outline-none h-11 text-center"
-                />
-                <button 
-                  onClick={() => setIsEditingTime(false)}
-                  className="px-3 py-2 bg-primary text-background-dark font-semibold text-xs rounded-lg active:scale-95 transition-transform"
-                >
-                  Done
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center">
-                <div className="font-stat-hero text-stat-hero text-on-surface flex items-baseline gap-1">
-                  <span>{formattedTime}</span>
-                </div>
-                <span 
-                  onClick={() => setIsEditingTime(true)}
-                  className="font-body-sm text-body-sm text-primary cursor-pointer hover:underline mt-1"
-                >
-                  Edit Time
-                </span>
-              </div>
-            )}
-          </div>
+          <div className="flex flex-col gap-5 mt-2">
+            {reminders.map((r) => {
+              const formattedTime = r.send_at.split(':').slice(0, 2).join(':');
+              const isEditing = isEditingReminderId === r.stack_id;
 
-          {/* Weekdays Toggle */}
-          <div className="flex justify-between items-center w-full mt-1">
-            {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
-              const isActive = reminder.days.includes(day);
               return (
-                <button
-                  key={day}
-                  onClick={() => handleDayToggle(day)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-mono-data text-[12px] font-semibold transition-all duration-200 ${isActive ? 'bg-primary text-background-dark scale-105 shadow' : 'bg-surface text-outline hover:bg-surface-bright'}`}
-                >
-                  {day[0].toUpperCase()}
-                </button>
+                <div key={r.stack_id} className="border-b border-border-dark/30 pb-4 last:border-b-0 last:pb-0 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="font-body-base text-body-base text-on-surface font-semibold">{r.stack_name}</span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <input 
+                            type="time" 
+                            value={formattedTime}
+                            onChange={(e) => handleTimeChange(r.stack_id, e.target.value)}
+                            className="bg-surface border border-border-dark rounded-lg px-2 py-1 font-mono-data text-xs text-on-surface focus:border-primary focus:ring-0 outline-none h-8 text-center"
+                          />
+                          <button 
+                            onClick={() => setIsEditingReminderId(null)}
+                            className="px-2 py-1 bg-primary text-background-dark font-semibold text-[10px] rounded active:scale-95 transition-transform"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setIsEditingReminderId(r.stack_id)}
+                          className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline font-mono-data font-semibold text-left"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">schedule</span>
+                          {formattedTime}
+                        </button>
+                      )}
+                    </div>
+                    <div 
+                      onClick={() => handleToggleReminder(r.stack_id)}
+                      className={`w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-200 ${r.active ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-background-dark shadow-sm transition-all duration-200 ${r.active ? 'right-1' : 'left-1'}`}></div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between mt-1">
+                    {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
+                      const isActive = r.days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => handleDayToggle(r.stack_id, day)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-mono-data text-[10px] font-semibold transition-all duration-200 ${isActive ? 'bg-primary/20 border border-primary text-primary' : 'bg-surface border border-border-dark text-outline hover:bg-surface-bright'}`}
+                        >
+                          {day[0].toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -500,7 +553,7 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 relative">
                 <label className="font-label-caps text-[10px] text-outline pl-1">NAME</label>
                 <input 
                   type="text" 
@@ -510,6 +563,34 @@ export default function SetupDashboard({ user, supabase }: { user: any, supabase
                   className="bg-background-dark border border-border-dark rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:ring-0 outline-none w-full h-11"
                   required
                 />
+                {suggestions.length > 0 && (
+                  <div className="absolute top-[60px] left-0 right-0 bg-surface border border-border-dark rounded-lg p-1 max-h-32 overflow-y-auto flex flex-col gap-1 z-[200] shadow-xl">
+                    <span className="text-[9px] text-outline pl-2 py-1 uppercase tracking-wider font-semibold">Previously Deleted (Click to Restore)</span>
+                    {suggestions.map(h => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('medium');
+                          setRestoringHabitId(h.id);
+                          setFormData({
+                            name: h.name,
+                            category: h.category,
+                            habit_type: h.habit_type,
+                            unit: h.unit || '',
+                            target_value: h.target_value ? String(h.target_value) : '',
+                            color: h.color || 'primary',
+                            stack_id: formData.stack_id
+                          });
+                        }}
+                        className="text-left px-2 py-1.5 rounded hover:bg-surface-variant text-xs text-on-surface flex items-center justify-between transition-colors"
+                      >
+                        <span className="font-semibold">{h.name}</span>
+                        <span className="text-[10px] text-primary bg-primary/10 rounded-full px-2 py-0.5 capitalize">{h.category}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

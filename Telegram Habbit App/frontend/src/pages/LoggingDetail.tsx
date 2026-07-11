@@ -20,6 +20,19 @@ function getColorClasses(color: string) {
   }
 }
 
+function formatTimestamptzToTimeStr(ts: string | null | undefined, defaultVal: string): string {
+  if (!ts) return defaultVal;
+  try {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return defaultVal;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
 export default function LoggingDetail({ user, supabase }: { user: any, supabase: any }) {
   const { stackId } = useParams();
   const navigate = useNavigate();
@@ -60,6 +73,12 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
     } catch (err) {}
   };
 
+  const triggerHaptic = (style: 'light' | 'medium' = 'light') => {
+    if ((window as any).Telegram?.WebApp?.HapticFeedback) {
+      (window as any).Telegram.WebApp.HapticFeedback.impactOccurred(style);
+    }
+  };
+
   const handleUpdateQuantitative = async (habitId: string, value: number) => {
     const newLogs = [...data.logs];
     const logIndex = newLogs.findIndex(l => l.habit_id === habitId);
@@ -72,22 +91,83 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
     } catch (err) {}
   };
 
-  const handleUpdateTimeWindow = async (habitId: string, startTime: string, endTime: string) => {
+  const handleUpdateTimeWindow = async (habitId: string, startTimeStr: string, endTimeStr: string) => {
+    const startIso = new Date(`${todayStr}T${startTimeStr}:00`).toISOString();
+    const endIso = new Date(`${todayStr}T${endTimeStr}:00`).toISOString();
+
     const newLogs = [...data.logs];
     const logIndex = newLogs.findIndex(l => l.habit_id === habitId);
     if (logIndex > -1) {
-      newLogs[logIndex].start_time = startTime;
-      newLogs[logIndex].end_time = endTime;
+      newLogs[logIndex].start_time = startIso;
+      newLogs[logIndex].end_time = endIso;
     } else {
-      newLogs.push({ habit_id: habitId, log_date: todayStr, start_time: startTime, end_time: endTime });
+      newLogs.push({ habit_id: habitId, log_date: todayStr, start_time: startIso, end_time: endIso });
     }
     setData({ ...data, logs: newLogs });
 
     try {
-      await updateTimeWindowLog(supabase, user.id, habitId, todayStr, startTime, endTime);
-      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
-        (window as any).Telegram.WebApp.HapticFeedback.selectionChanged();
+      await updateTimeWindowLog(supabase, user.id, habitId, todayStr, startIso, endIso);
+      triggerHaptic('light');
+    } catch (err) {}
+  };
+
+  const handleToggleTimeWindow = async (habitId: string, currentStatus: boolean) => {
+    triggerHaptic('medium');
+    const newLogs = [...data.logs];
+    const logIndex = newLogs.findIndex(l => l.habit_id === habitId);
+
+    if (currentStatus) {
+      if (logIndex > -1) {
+        newLogs[logIndex].start_time = null;
+        newLogs[logIndex].end_time = null;
       }
+      setData({ ...data, logs: newLogs });
+      
+      try {
+        await supabase.from('hs_habit_logs').upsert({
+          user_id: user.id,
+          habit_id: habitId,
+          log_date: todayStr,
+          start_time: null,
+          end_time: null,
+          logged_via: 'app'
+        }, { onConflict: 'habit_id, log_date' });
+      } catch (e) {}
+    } else {
+      const defaultStart = '21:30';
+      const defaultEnd = '22:30';
+      const startIso = new Date(`${todayStr}T${defaultStart}:00`).toISOString();
+      const endIso = new Date(`${todayStr}T${defaultEnd}:00`).toISOString();
+
+      if (logIndex > -1) {
+        newLogs[logIndex].start_time = startIso;
+        newLogs[logIndex].end_time = endIso;
+      } else {
+        newLogs.push({ habit_id: habitId, log_date: todayStr, start_time: startIso, end_time: endIso });
+      }
+      setData({ ...data, logs: newLogs });
+
+      try {
+        await updateTimeWindowLog(supabase, user.id, habitId, todayStr, startIso, endIso);
+      } catch (e) {}
+    }
+  };
+
+  const handleUpdateNote = async (habitId: string, note: string) => {
+    const newLogs = [...data.logs];
+    const logIndex = newLogs.findIndex(l => l.habit_id === habitId);
+    if (logIndex > -1) newLogs[logIndex].note = note;
+    else newLogs.push({ habit_id: habitId, log_date: todayStr, note: note });
+    setData({ ...data, logs: newLogs });
+
+    try {
+      await supabase.from('hs_habit_logs').upsert({
+        user_id: user.id,
+        habit_id: habitId,
+        log_date: todayStr,
+        note: note,
+        logged_via: 'app'
+      }, { onConflict: 'habit_id, log_date' });
     } catch (err) {}
   };
 
@@ -141,19 +221,30 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
             if (habit.habit_type === 'boolean') {
               const isCompleted = !!log?.completed;
               return (
-                <div key={habit.id} className={`bg-surface-dark border border-border-dark rounded-xl p-4 flex items-center justify-between transition-colors duration-300 ${isCompleted ? c.bg10 : ''}`}>
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${c.bg} flex-shrink-0`}></div>
-                    <div>
+                <div key={habit.id} className={`bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col gap-3 transition-colors duration-300 ${isCompleted ? c.bg10 : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${c.bg} flex-shrink-0`}></div>
                       <h3 className="font-headline-md text-body-base font-semibold text-on-surface">{habit.name}</h3>
                     </div>
+                    <div className="flex items-center justify-center min-w-touch-target-min min-h-touch-target-min">
+                      <input 
+                        type="checkbox" 
+                        checked={isCompleted}
+                        onChange={() => handleToggle(habit.id, isCompleted)}
+                        className={`w-7 h-7 rounded border-2 border-outline-variant bg-transparent ${c.text} focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all duration-200`}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center justify-center min-w-touch-target-min min-h-touch-target-min">
+                  
+                  <div className="pt-2 border-t border-border-dark/30 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[14px] text-outline">notes</span>
                     <input 
-                      type="checkbox" 
-                      checked={isCompleted}
-                      onChange={() => handleToggle(habit.id, isCompleted)}
-                      className={`w-8 h-8 rounded border-2 border-outline-variant bg-transparent ${c.text} focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all duration-200`}
+                      type="text" 
+                      placeholder="Add reflection or note..."
+                      value={log?.note || ''}
+                      onChange={(e) => handleUpdateNote(habit.id, e.target.value)}
+                      className="bg-transparent text-xs text-on-surface placeholder-outline-variant focus:outline-none w-full"
                     />
                   </div>
                 </div>
@@ -162,8 +253,9 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
 
             if (habit.habit_type === 'quantitative') {
               const currentValue = log?.value || 0;
+              const isCompleted = currentValue >= habit.target_value;
               return (
-                <div key={habit.id} className="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-4">
+                <div key={habit.id} className={`bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col gap-3 transition-colors duration-300 ${isCompleted ? c.bg10 : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-3 h-3 rounded-full ${c.bg} flex-shrink-0`}></div>
@@ -174,59 +266,92 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
                     </div>
                   </div>
                   <div className="flex items-center justify-between bg-background-dark/50 rounded-lg p-2 border border-border-dark/50">
-                    <button onClick={() => handleUpdateQuantitative(habit.id, Math.max(currentValue - 1, 0))} className="w-[44px] h-[44px] flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>remove</span>
+                    <button onClick={() => handleUpdateQuantitative(habit.id, Math.max(currentValue - 1, 0))} className="w-10 h-10 flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
+                      <span className="material-symbols-outlined text-[18px]">remove</span>
                     </button>
                     <div className="flex items-baseline space-x-1">
                       <input 
                         type="number" 
-                        className="bg-transparent font-mono-data text-[24px] font-semibold text-on-surface w-16 text-center border-b border-transparent focus:border-primary-fixed-dim focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="bg-transparent font-mono-data text-[20px] font-semibold text-on-surface w-16 text-center border-b border-transparent focus:border-primary-fixed-dim focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={currentValue === 0 ? '' : currentValue}
                         placeholder="0"
                         onChange={(e) => handleUpdateQuantitative(habit.id, Number(e.target.value))}
                       />
                       <span className="font-mono-data text-body-sm text-outline">{habit.unit}</span>
                     </div>
-                    <button onClick={() => handleUpdateQuantitative(habit.id, Math.min(currentValue + 1, habit.target_value))} className="w-[44px] h-[44px] flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>add</span>
+                    <button onClick={() => handleUpdateQuantitative(habit.id, Math.min(currentValue + 1, habit.target_value))} className="w-10 h-10 flex items-center justify-center text-outline hover:text-on-surface active:scale-95 transition-all bg-surface border border-border-dark rounded-md">
+                      <span className="material-symbols-outlined text-[18px]">add</span>
                     </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-border-dark/30 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[14px] text-outline">notes</span>
+                    <input 
+                      type="text" 
+                      placeholder="Add reflection or note..."
+                      value={log?.note || ''}
+                      onChange={(e) => handleUpdateNote(habit.id, e.target.value)}
+                      className="bg-transparent text-xs text-on-surface placeholder-outline-variant focus:outline-none w-full"
+                    />
                   </div>
                 </div>
               );
             }
 
             if (habit.habit_type === 'time_window') {
-              const startTime = log?.start_time || '21:30';
-              const endTime = log?.end_time || '22:30';
+              const isLogged = !!(log?.start_time && log?.end_time);
+              const startTime = formatTimestamptzToTimeStr(log?.start_time, '21:30');
+              const endTime = formatTimestamptzToTimeStr(log?.end_time, '22:30');
+
               return (
-                <div key={habit.id} className="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-4">
+                <div key={habit.id} className={`bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col gap-3 transition-colors duration-300 ${isLogged ? c.bg10 : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-3 h-3 rounded-full ${c.bg} flex-shrink-0`}></div>
-                      <div>
-                        <h3 className="font-headline-md text-body-base font-semibold text-on-surface">{habit.name}</h3>
-                      </div>
+                      <h3 className="font-headline-md text-body-base font-semibold text-on-surface">{habit.name}</h3>
+                    </div>
+                    <div className="flex items-center justify-center min-w-touch-target-min min-h-touch-target-min">
+                      <input 
+                        type="checkbox" 
+                        checked={isLogged}
+                        onChange={() => handleToggleTimeWindow(habit.id, isLogged)}
+                        className={`w-7 h-7 rounded border-2 border-outline-variant bg-transparent ${c.text} focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all duration-200`}
+                      />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col">
-                      <label className="font-label-caps text-[10px] text-outline mb-1 pl-1">START TIME</label>
-                      <input 
-                        className="bg-background-dark border border-border-dark rounded-lg px-3 py-3 font-mono-data text-body-base text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[44px]" 
-                        type="time" 
-                        value={startTime}
-                        onChange={(e) => handleUpdateTimeWindow(habit.id, e.target.value, endTime)}
-                      />
+
+                  {isLogged && (
+                    <div className="grid grid-cols-2 gap-3 mt-1 animate-fade-in">
+                      <div className="flex flex-col">
+                        <label className="font-label-caps text-[9px] text-outline mb-1 pl-1">START TIME</label>
+                        <input 
+                          className="bg-background-dark border border-border-dark rounded-lg px-2 py-1.5 font-mono-data text-xs text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[38px] text-center" 
+                          type="time" 
+                          value={startTime}
+                          onChange={(e) => handleUpdateTimeWindow(habit.id, e.target.value, endTime)}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="font-label-caps text-[9px] text-outline mb-1 pl-1">END TIME</label>
+                        <input 
+                          className="bg-background-dark border border-border-dark rounded-lg px-2 py-1.5 font-mono-data text-xs text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[38px] text-center" 
+                          type="time" 
+                          value={endTime}
+                          onChange={(e) => handleUpdateTimeWindow(habit.id, startTime, e.target.value)}
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <label className="font-label-caps text-[10px] text-outline mb-1 pl-1">END TIME</label>
-                      <input 
-                        className="bg-background-dark border border-border-dark rounded-lg px-3 py-3 font-mono-data text-body-base text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none w-full h-[44px]" 
-                        type="time" 
-                        value={endTime}
-                        onChange={(e) => handleUpdateTimeWindow(habit.id, startTime, e.target.value)}
-                      />
-                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border-dark/30 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[14px] text-outline">notes</span>
+                    <input 
+                      type="text" 
+                      placeholder="Add reflection or note..."
+                      value={log?.note || ''}
+                      onChange={(e) => handleUpdateNote(habit.id, e.target.value)}
+                      className="bg-transparent text-xs text-on-surface placeholder-outline-variant focus:outline-none w-full"
+                    />
                   </div>
                 </div>
               );
@@ -234,14 +359,6 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
 
             return null;
           })}
-
-          <div className="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col space-y-3 mt-4">
-            <div className="flex items-center space-x-2">
-              <span className="material-symbols-outlined text-outline text-[18px]" style={{ fontVariationSettings: "'FILL' 0" }}>notes</span>
-              <h3 className="font-body-sm text-body-sm font-medium text-outline">Notes (Optional)</h3>
-            </div>
-            <textarea className="w-full bg-background-dark border border-border-dark rounded-lg p-3 font-body-sm text-body-sm text-on-surface placeholder-outline-variant focus:border-primary-fixed-dim focus:ring-0 outline-none resize-none" placeholder="Any reflections or variations?" rows={3}></textarea>
-          </div>
         </div>
       </main>
     </div>

@@ -243,8 +243,9 @@ export default function TodayDashboard({ user, setUser, supabase }: { user: any,
           const habits = stack.hs_stack_habits.map((sh: any) => sh.hs_habits);
           const completedCount = habits.filter((habit: any) => {
             const log = data.logs.find(l => l.habit_id === habit.id);
-            if (habit.habit_type === 'boolean') return log?.completed;
-            if (habit.habit_type === 'quantitative') return log?.value >= habit.target_value;
+            if (habit.habit_type === 'boolean') return !!log?.completed;
+            if (habit.habit_type === 'quantitative') return (log?.value || 0) >= (habit.target_value || 0);
+            if (habit.habit_type === 'time_window') return !!(log?.start_time && log?.end_time);
             return false;
           }).length;
 
@@ -311,17 +312,44 @@ export default function TodayDashboard({ user, setUser, supabase }: { user: any,
                 }
 
                 if (habit.habit_type === 'time_window') {
+                  const isLogged = !!(log?.start_time && log?.end_time);
+                  let formattedRange = '';
+                  if (isLogged && log?.start_time && log?.end_time) {
+                    try {
+                      const dStart = new Date(log.start_time);
+                      const dEnd = new Date(log.end_time);
+                      const fStart = `${String(dStart.getHours()).padStart(2, '0')}:${String(dStart.getMinutes()).padStart(2, '0')}`;
+                      const fEnd = `${String(dEnd.getHours()).padStart(2, '0')}:${String(dEnd.getMinutes()).padStart(2, '0')}`;
+                      formattedRange = `${fStart} - ${fEnd}`;
+                    } catch (e) {}
+                  }
+
                   return (
-                    <div key={habit.id} className="flex items-center justify-between bg-surface border border-border-dark rounded-xl p-3 mt-2">
+                    <div 
+                      key={habit.id} 
+                      className={`flex items-center justify-between border rounded-xl p-3 mt-2 transition-colors duration-200 cursor-pointer ${
+                        isLogged ? `${c.bg10} border-border-dark` : 'bg-surface border-border-dark hover:bg-surface-bright'
+                      }`}
+                      onClick={() => navigate(`/log/${stack.id}`)}
+                    >
                       <div className="flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${c.bg}`}></div>
                         <div className="flex flex-col">
-                          <span className="font-body-base text-body-base text-on-surface">{habit.name}</span>
+                          <span className={`font-body-base text-body-base text-on-surface ${isLogged ? 'line-through opacity-70' : ''}`}>{habit.name}</span>
+                          {isLogged && (
+                            <span className="font-mono-data text-[11px] text-outline mt-0.5">{formattedRange}</span>
+                          )}
                         </div>
                       </div>
-                      <div className="bg-surface border border-outline-variant/30 rounded-full px-3 py-1 flex items-center gap-2 cursor-pointer" onClick={() => navigate(`/log/${stack.id}`)}>
-                         <span className={`font-mono-data text-mono-data ${c.text}`}>Log Time</span>
-                      </div>
+                      {isLogged ? (
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-transparent border border-primary`}>
+                          <span className={`material-symbols-outlined text-[16px] ${c.text} font-bold`} style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+                        </div>
+                      ) : (
+                        <div className="bg-surface border border-outline-variant/30 rounded-full px-3 py-1 flex items-center gap-2">
+                           <span className={`font-mono-data text-mono-data ${c.text}`}>Log Time</span>
+                        </div>
+                      )}
                     </div>
                   );
                 }
