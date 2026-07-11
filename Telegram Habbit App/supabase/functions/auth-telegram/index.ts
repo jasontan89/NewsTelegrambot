@@ -122,7 +122,7 @@ serve(async (req) => {
         first_name: user.first_name,
         photo_url: user.photo_url,
       }, { onConflict: 'telegram_user_id' })
-      .select('id')
+      .select('*')
       .single();
 
     if (upsertError || !dbUser) {
