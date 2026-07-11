@@ -39,6 +39,24 @@ async function sendTelegramMessage(chatId: number, text: string) {
 
 serve(async (req) => {
   try {
+    // SEC-5: Verify authorization — only allow calls from Supabase cron (service role) or with a valid cron secret
+    const authHeader = req.headers.get('Authorization');
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    const token = authHeader?.replace('Bearer ', '');
+    const isAuthorized = token && (
+      token === cronSecret ||
+      token === serviceRoleKey
+    );
+
+    if (!isAuthorized) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // 1. Fetch active reminders with user and relation data
     const { data: reminders, error: remindersError } = await supabase
       .from('hs_reminders')

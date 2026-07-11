@@ -2,8 +2,10 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import * as djwt from "https://deno.land/x/djwt@v3.0.1/mod.ts";
 
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://jasontan89.github.io';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -36,48 +38,43 @@ serve(async (req) => {
       throw new Error('Bot token not configured');
     }
 
-    let isValid = false;
-    // Simple bypass for local development using the browser subagent
-    if (hash === 'mock_hash_for_local_testing') {
-      isValid = true;
-    } else {
-      const encoder = new TextEncoder();
-      const webAppKey = encoder.encode("WebAppData");
-      
-      const cryptoKey1 = await crypto.subtle.importKey(
-        "raw",
-        webAppKey,
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
-      
-      const secretKeyBuffer = await crypto.subtle.sign(
-        "HMAC",
-        cryptoKey1,
-        encoder.encode(botToken)
-      );
+    // Validate HMAC-SHA256 hash from Telegram
+    const encoder = new TextEncoder();
+    const webAppKey = encoder.encode("WebAppData");
+    
+    const cryptoKey1 = await crypto.subtle.importKey(
+      "raw",
+      webAppKey,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    
+    const secretKeyBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey1,
+      encoder.encode(botToken)
+    );
 
-      const cryptoKey2 = await crypto.subtle.importKey(
-        "raw",
-        secretKeyBuffer,
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
+    const cryptoKey2 = await crypto.subtle.importKey(
+      "raw",
+      secretKeyBuffer,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
 
-      const calculatedHashBuffer = await crypto.subtle.sign(
-        "HMAC",
-        cryptoKey2,
-        encoder.encode(dataCheckString)
-      );
+    const calculatedHashBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey2,
+      encoder.encode(dataCheckString)
+    );
 
-      const calculatedHash = Array.from(new Uint8Array(calculatedHashBuffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+    const calculatedHash = Array.from(new Uint8Array(calculatedHashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
 
-      isValid = calculatedHash === hash;
-    }
+    const isValid = calculatedHash === hash;
 
     if (!isValid) {
       return new Response(JSON.stringify({ error: 'Invalid hash' }), {
@@ -141,7 +138,10 @@ serve(async (req) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7), // 1 week
     };
 
-    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET') || 'super-secret-jwt-token-with-at-least-32-characters-long';
+    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
+    if (!jwtSecret) {
+      throw new Error('JWT secret is not configured. Set JWT_SECRET or SUPABASE_JWT_SECRET.');
+    }
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
