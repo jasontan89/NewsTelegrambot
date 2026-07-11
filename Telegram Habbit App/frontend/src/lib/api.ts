@@ -33,56 +33,93 @@ export async function fetchTodayData(supabase: SupabaseClient, userId: string, d
 }
 
 export async function toggleHabitLog(supabase: SupabaseClient, userId: string, habitId: string, date: string, completed: boolean) {
-  const { error } = await supabase
+  const { data, error: updateError } = await supabase
     .from('hs_habit_logs')
-    .upsert({
-      user_id: userId,
-      habit_id: habitId,
-      log_date: date,
-      completed,
-      logged_via: 'app'
-    }, { onConflict: 'habit_id, log_date' });
+    .update({ completed, logged_via: 'app' })
+    .eq('user_id', userId)
+    .eq('habit_id', habitId)
+    .eq('log_date', date)
+    .select();
   
-  if (error) throw error;
+  if (updateError) throw updateError;
+
+  if (!data || data.length === 0) {
+    const { error: insertError } = await supabase
+      .from('hs_habit_logs')
+      .insert({
+        user_id: userId,
+        habit_id: habitId,
+        log_date: date,
+        completed,
+        logged_via: 'app'
+      });
+    if (insertError) throw insertError;
+  }
 }
 
 export async function updateQuantitativeLog(supabase: SupabaseClient, userId: string, habitId: string, date: string, value: number) {
-  const { error } = await supabase
+  const { data, error: updateError } = await supabase
     .from('hs_habit_logs')
-    .upsert({
-      user_id: userId,
-      habit_id: habitId,
-      log_date: date,
-      value,
-      logged_via: 'app'
-    }, { onConflict: 'habit_id, log_date' });
+    .update({ value, logged_via: 'app' })
+    .eq('user_id', userId)
+    .eq('habit_id', habitId)
+    .eq('log_date', date)
+    .select();
   
-  if (error) throw error;
+  if (updateError) throw updateError;
+
+  if (!data || data.length === 0) {
+    const { error: insertError } = await supabase
+      .from('hs_habit_logs')
+      .insert({
+        user_id: userId,
+        habit_id: habitId,
+        log_date: date,
+        value,
+        logged_via: 'app'
+      });
+    if (insertError) throw insertError;
+  }
 }
 
 export async function updateTimeWindowLog(supabase: SupabaseClient, userId: string, habitId: string, date: string, startTime: string, endTime: string) {
-  const { error } = await supabase
+  const { data, error: updateError } = await supabase
     .from('hs_habit_logs')
-    .upsert({
-      user_id: userId,
-      habit_id: habitId,
-      log_date: date,
-      start_time: startTime,
-      end_time: endTime,
-      logged_via: 'app'
-    }, { onConflict: 'habit_id, log_date' });
+    .update({ start_time: startTime, end_time: endTime, logged_via: 'app' })
+    .eq('user_id', userId)
+    .eq('habit_id', habitId)
+    .eq('log_date', date)
+    .select();
   
-  if (error) throw error;
+  if (updateError) throw updateError;
+
+  if (!data || data.length === 0) {
+    const { error: insertError } = await supabase
+      .from('hs_habit_logs')
+      .insert({
+        user_id: userId,
+        habit_id: habitId,
+        log_date: date,
+        start_time: startTime,
+        end_time: endTime,
+        logged_via: 'app'
+      });
+    if (insertError) throw insertError;
+  }
 }
 
+let hasSeeded = false;
 let isSeeding = false;
 
 export async function seedMockData(supabase: SupabaseClient, userId: string) {
-  if (isSeeding) return;
+  if (hasSeeded || isSeeding) return;
 
   // check if habits exist
   const { count } = await supabase.from('hs_stacks').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-  if (count && count > 0) return; // already seeded
+  if (count && count > 0) {
+    hasSeeded = true;
+    return; // already seeded
+  }
 
   isSeeding = true;
 
@@ -131,6 +168,7 @@ export async function seedMockData(supabase: SupabaseClient, userId: string) {
   } catch (e) {
     console.error('Error seeding data:', e);
   } finally {
+    hasSeeded = true;
     isSeeding = false;
   }
 }

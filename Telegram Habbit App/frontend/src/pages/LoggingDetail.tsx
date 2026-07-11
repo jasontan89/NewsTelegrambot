@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchTodayData, toggleHabitLog, updateQuantitativeLog, updateTimeWindowLog } from '../lib/api';
 
@@ -38,6 +38,8 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
   const navigate = useNavigate();
   const [data, setData] = useState<{ stacks: any[], logs: any[] }>({ stacks: [], logs: [] });
   const [loading, setLoading] = useState(true);
+  const noteTimerRef = useRef<Record<string, number>>({});
+
   
   const todayStr = getLocalDateString(new Date());
 
@@ -70,7 +72,14 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
       if ((window as any).Telegram?.WebApp?.HapticFeedback) {
         (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
       }
-    } catch (err) {}
+    } catch (err) {
+      const reverted = [...data.logs];
+      const revIndex = reverted.findIndex(l => l.habit_id === habitId);
+      if (revIndex > -1) reverted[revIndex].completed = currentStatus;
+      setData({ ...data, logs: reverted });
+      triggerHaptic('medium');
+      window.alert('Failed to save toggle. Please check your connection.');
+    }
   };
 
   const triggerHaptic = (style: 'light' | 'medium' = 'light') => {
@@ -88,7 +97,11 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
 
     try {
       await updateQuantitativeLog(supabase, user.id, habitId, todayStr, value);
-    } catch (err) {}
+    } catch (err) {
+      // Revert is complex without previous value, just alert
+      triggerHaptic('medium');
+      window.alert('Failed to save value.');
+    }
   };
 
   const handleUpdateTimeWindow = async (habitId: string, startTimeStr: string, endTimeStr: string) => {
@@ -108,7 +121,10 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
     try {
       await updateTimeWindowLog(supabase, user.id, habitId, todayStr, startIso, endIso);
       triggerHaptic('light');
-    } catch (err) {}
+    } catch (err) {
+      triggerHaptic('medium');
+      window.alert('Failed to save time.');
+    }
   };
 
   const handleToggleTimeWindow = async (habitId: string, currentStatus: boolean) => {
@@ -124,15 +140,29 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
       setData({ ...data, logs: newLogs });
       
       try {
-        await supabase.from('hs_habit_logs').upsert({
-          user_id: user.id,
-          habit_id: habitId,
-          log_date: todayStr,
-          start_time: null,
-          end_time: null,
-          logged_via: 'app'
-        }, { onConflict: 'habit_id, log_date' });
-      } catch (e) {}
+        const { data: updateData, error: updateError } = await supabase
+          .from('hs_habit_logs')
+          .update({ start_time: null, end_time: null, logged_via: 'app' })
+          .eq('user_id', user.id)
+          .eq('habit_id', habitId)
+          .eq('log_date', todayStr)
+          .select();
+        
+        if (updateError) throw updateError;
+        if (!updateData || updateData.length === 0) {
+          await supabase.from('hs_habit_logs').insert({
+            user_id: user.id,
+            habit_id: habitId,
+            log_date: todayStr,
+            start_time: null,
+            end_time: null,
+            logged_via: 'app'
+          });
+        }
+      } catch (e) {
+        triggerHaptic('medium');
+        window.alert('Failed to clear time window.');
+      }
     } else {
       const defaultStart = '21:30';
       const defaultEnd = '22:30';
@@ -149,26 +179,50 @@ export default function LoggingDetail({ user, supabase }: { user: any, supabase:
 
       try {
         await updateTimeWindowLog(supabase, user.id, habitId, todayStr, startIso, endIso);
-      } catch (e) {}
+      } catch (e) {
+        triggerHaptic('medium');
+        window.alert('Failed to save time window.');
+      }
     }
   };
 
-  const handleUpdateNote = async (habitId: string, note: string) => {
+  const handleUpdateNote = (habitId: string, note: string) => {
     const newLogs = [...data.logs];
     const logIndex = newLogs.findIndex(l => l.habit_id === habitId);
     if (logIndex > -1) newLogs[logIndex].note = note;
     else newLogs.push({ habit_id: habitId, log_date: todayStr, note: note });
     setData({ ...data, logs: newLogs });
 
-    try {
-      await supabase.from('hs_habit_logs').upsert({
-        user_id: user.id,
-        habit_id: habitId,
-        log_date: todayStr,
-        note: note,
-        logged_via: 'app'
-      }, { onConflict: 'habit_id, log_date' });
-    } catch (err) {}
+    if (noteTimerRef.current[habitId]) {
+      clearTimeout(noteTimerRef.current[habitId]);
+    }
+
+    noteTimerRef.current[habitId] = window.setTimeout(async () => {
+      try {
+        const { data: updateData, error: updateError } = await supabase
+          .from('hs_habit_logs')
+          .update({ note: note, logged_via: 'app' })
+          .eq('user_id', user.id)
+          .eq('habit_id', habitId)
+          .eq('log_date', todayStr)
+          .select();
+        
+        if (updateError) throw updateError;
+        if (!updateData || updateData.length === 0) {
+          await supabase.from('hs_habit_logs').insert({
+            user_id: user.id,
+            habit_id: habitId,
+            log_date: todayStr,
+            note: note,
+            logged_via: 'app'
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        triggerHaptic('medium');
+        window.alert('Failed to save note.');
+      }
+    }, 500);
   };
 
   const progress = useMemo(() => {

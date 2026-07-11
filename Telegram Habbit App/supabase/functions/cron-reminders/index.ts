@@ -94,9 +94,18 @@ serve(async (req) => {
 
       // 3. Compare with reminder's send_at time (send_at is "HH:MM:SS", we match "HH:MM")
       const targetTimeStr = r.send_at.slice(0, 5);
+      
+      const targetMins = parseInt(targetTimeStr.split(':')[0], 10) * 60 + parseInt(targetTimeStr.split(':')[1], 10);
+      const userMins = parseInt(userTimeStr.split(':')[0], 10) * 60 + parseInt(userTimeStr.split(':')[1], 10);
 
-      if (userTimeStr !== targetTimeStr) {
-        continue; // Time does not match
+      // Handle midnight wrap-around (e.g. 23:59 and 00:01)
+      let diff = Math.abs(userMins - targetMins);
+      if (diff > 12 * 60) {
+        diff = 24 * 60 - diff;
+      }
+
+      if (diff > 2) {
+        continue; // Time does not match within +/- 2 minutes
       }
 
       // 4. Check day of week

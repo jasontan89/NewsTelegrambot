@@ -31,24 +31,54 @@ export default function App() {
 
   useEffect(() => {
     async function authenticate() {
-      // Fallback initData if the SDK mock fails to provide it
-      const fallbackMockInitData = new URLSearchParams({
-        user: JSON.stringify({
-          id: 123456789,
-          first_name: 'Dev',
-          username: 'dev_user',
-        }),
-        auth_date: Math.floor(Date.now() / 1000).toString(),
-        hash: 'mock_hash_for_local_testing',
-      }).toString();
+      // 1. Try manually extracting from URL hash (most robust fallback)
+      let telegramInitData: string | null = null;
+      try {
+        const hash = window.location.hash.slice(1);
+        if (hash) {
+          const params = new URLSearchParams(hash);
+          telegramInitData = params.get('tgWebAppData');
+        }
+      } catch (e) {
+        console.warn("Manual hash parsing failed:", e);
+      }
 
-      const dataToUse = lp?.initDataRaw || import.meta.env.VITE_MOCK_INIT_DATA || fallbackMockInitData;
+      // 2. Try URL search query params
+      if (!telegramInitData) {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          telegramInitData = params.get('tgWebAppData');
+        } catch (e) {}
+      }
+
+      // 3. Fallback to Telegram SDK
+      const dataToUse = telegramInitData || lp?.initDataRaw || import.meta.env.VITE_MOCK_INIT_DATA;
 
       if (!dataToUse) {
-        setError("No Telegram init data found.");
+        const isProduction = window.location.hostname.includes('github.io');
+        if (isProduction) {
+          setError("This app must be opened from inside the Telegram Mini App. If you are developing locally, please use localhost.");
+        } else {
+          // Local development fallback
+          const fallbackMockInitData = new URLSearchParams({
+            user: JSON.stringify({
+              id: 123456789,
+              first_name: 'Dev',
+              username: 'dev_user',
+            }),
+            auth_date: Math.floor(Date.now() / 1000).toString(),
+            hash: 'mock_hash_for_local_testing',
+          }).toString();
+          
+          proceedWithAuth(fallbackMockInitData);
+        }
         return;
       }
 
+      proceedWithAuth(dataToUse);
+    }
+
+    async function proceedWithAuth(initDataString: string) {
       try {
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
         const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
@@ -59,7 +89,7 @@ export default function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({ initData: dataToUse })
+          body: JSON.stringify({ initData: initDataString })
         });
 
         if (!res.ok) {

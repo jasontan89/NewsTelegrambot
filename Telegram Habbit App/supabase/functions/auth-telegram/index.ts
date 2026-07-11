@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import * as djwt from "https://deno.land/x/djwt@v3.0.1/mod.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://jasontan89.github.io';
 
@@ -9,7 +8,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper for base64url encoding
+function base64url(buf: Uint8Array): string {
+  let binary = "";
+  const len = buf.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(buf[i]);
+  }
+  return btoa(binary)
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+// Helper to sign JWT using Web Crypto API
+async function signJwt(payload: any, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const header = { alg: "HS256", typ: "JWT" };
+  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
+  
+  const tokenData = `${encodedHeader}.${encodedPayload}`;
+  
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signatureBuffer = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(tokenData)
+  );
+  
+  const encodedSignature = base64url(new Uint8Array(signatureBuffer));
+  return `${tokenData}.${encodedSignature}`;
+}
+
 serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -28,12 +68,24 @@ serve(async (req) => {
     const hash = urlParams.get('hash');
     urlParams.delete('hash');
 
-    const dataCheckString = Array.from(urlParams.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
+    // Sort keys alphabetically using standard Array.sort() (strict Unicode code point order)
+    const entries = Array.from(urlParams.entries()).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+    
+    const dataCheckString = entries
       .map(([key, value]) => `${key}=${value}`)
       .join('\n');
 
     const botToken = Deno.env.get('HABIT_STACK_TELEGRAM_BOT_TOKEN');
+
+    // Safe Debug Logging (No PII)
+    console.log("--- Auth Debug ---");
+    console.log("Token set:", !!botToken);
+    if (botToken) {
+      console.log(`Token prefix: ${botToken.slice(0, 4)}... length: ${botToken.length}`);
+    }
+    console.log("Reconstructed keys:", entries.map(e => e[0]));
+    console.log("Received hash:", hash);
+
     if (!botToken) {
       throw new Error('Bot token not configured');
     }
@@ -74,10 +126,12 @@ serve(async (req) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
+    console.log("Calculated hash:", calculatedHash);
     const isValid = calculatedHash === hash;
+    console.log("Is hash valid?", isValid);
 
     if (!isValid) {
-      return new Response(JSON.stringify({ error: 'Invalid hash' }), {
+      return new Response(JSON.stringify({ error: 'Invalid hash', calculated: calculatedHash, received: hash }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -85,7 +139,7 @@ serve(async (req) => {
 
     const authDate = parseInt(urlParams.get('auth_date') || '0', 10);
     const now = Math.floor(Date.now() / 1000);
-    if (now - authDate > 300) { // 5 minutes
+    if (now - authDate > 86400 * 30) { // Keep session valid for up to 30 days of initData (standard Telegram behavior)
       return new Response(JSON.stringify({ error: 'Auth date expired' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -102,12 +156,9 @@ serve(async (req) => {
 
     const user = JSON.parse(userStr);
     
-    // On Windows local Docker, SUPABASE_URL might fail to resolve if it defaults to an internal name that's blocked.
-    // Fallback to host.docker.internal to reach the API gateway.
-    const apiUrl = Deno.env.get('SUPABASE_URL') || 'http://host.docker.internal:54321';
-    
+    const apiUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseClient = createClient(
-      apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1') ? 'http://host.docker.internal:54321' : apiUrl,
+      apiUrl,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
@@ -138,20 +189,8 @@ serve(async (req) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7), // 1 week
     };
 
-    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
-    if (!jwtSecret) {
-      throw new Error('JWT secret is not configured. Set JWT_SECRET or SUPABASE_JWT_SECRET.');
-    }
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(jwtSecret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-
-    const token = await djwt.create({ alg: "HS256", typ: "JWT" }, payload, key);
+    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET') || '';
+    const token = await signJwt(payload, jwtSecret);
 
     return new Response(JSON.stringify({ token, user: dbUser }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

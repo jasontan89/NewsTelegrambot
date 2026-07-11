@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchTodayData, toggleHabitLog, seedMockData, updateQuantitativeLog } from '../lib/api';
 
@@ -29,8 +29,17 @@ export default function TodayDashboard({ user, setUser, supabase }: { user: any,
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
+  const valueTimerRef = useRef<Record<string, number>>({});
   
-  const todayStr = getLocalDateString(new Date());
+  const [todayStr, setTodayStr] = useState(getLocalDateString(new Date()));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newStr = getLocalDateString(new Date());
+      if (newStr !== todayStr) setTodayStr(newStr);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [todayStr]);
 
   useEffect(() => {
     if (user && !user.has_seen_guide) {
@@ -157,7 +166,7 @@ export default function TodayDashboard({ user, setUser, supabase }: { user: any,
     }
   };
 
-  const handleDirectValueUpdate = async (habitId: string, val: number) => {
+  const handleDirectValueUpdate = (habitId: string, val: number) => {
     const newValue = Math.max(0, val);
     if (isNaN(newValue)) return;
 
@@ -168,14 +177,20 @@ export default function TodayDashboard({ user, setUser, supabase }: { user: any,
     else newLogs.push({ habit_id: habitId, log_date: todayStr, value: newValue });
     setData({ ...data, logs: newLogs });
 
-    try {
-      await updateQuantitativeLog(supabase, user.id, habitId, todayStr, newValue);
-      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
-        (window as any).Telegram.WebApp.HapticFeedback.selectionChanged();
-      }
-    } catch (err) {
-      console.error(err);
+    if (valueTimerRef.current[habitId]) {
+      clearTimeout(valueTimerRef.current[habitId]);
     }
+
+    valueTimerRef.current[habitId] = window.setTimeout(async () => {
+      try {
+        await updateQuantitativeLog(supabase, user.id, habitId, todayStr, newValue);
+        if ((window as any).Telegram?.WebApp?.HapticFeedback) {
+          (window as any).Telegram.WebApp.HapticFeedback.selectionChanged();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 500);
   };
 
   // Calculate completion percentage

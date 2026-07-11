@@ -12,17 +12,16 @@ const supabaseServiceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 const supabase = createClient(supabaseUrl, supabaseServiceRole);
 
-// Helper to get local YYYY-MM-DD date based on timezone
-function getLocalDateStr(timezone: string) {
+function getLocalDateStr(timezone: string, date: Date = new Date()) {
   try {
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: timezone || 'Asia/Singapore',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
-    }).format(new Date());
+    }).format(date);
   } catch (e) {
-    return new Date().toISOString().split('T')[0];
+    return date.toISOString().split('T')[0];
   }
 }
 
@@ -275,7 +274,7 @@ bot.command('stats', async (ctx) => {
     const today = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const thirtyDaysAgoStr = getLocalDateStr(user.timezone, thirtyDaysAgo);
 
     const { data: logs } = await supabase
       .from('hs_habit_logs')
@@ -300,18 +299,18 @@ bot.command('stats', async (ctx) => {
 
       let current = 0;
       let checkDate = new Date();
-      let checkDateStr = checkDate.toISOString().split('T')[0];
+      let checkDateStr = getLocalDateStr(user.timezone, checkDate);
       let hasToday = completedDates.has(checkDateStr);
       
       if (!hasToday) {
         checkDate.setDate(checkDate.getDate() - 1);
-        checkDateStr = checkDate.toISOString().split('T')[0];
+        checkDateStr = getLocalDateStr(user.timezone, checkDate);
       }
 
       while (completedDates.has(checkDateStr)) {
         current++;
         checkDate.setDate(checkDate.getDate() - 1);
-        checkDateStr = checkDate.toISOString().split('T')[0];
+        checkDateStr = getLocalDateStr(user.timezone, checkDate);
       }
 
       message += `• *${habit.name}*: ${current} day streak 🔥\n`;
@@ -330,7 +329,7 @@ const handleUpdate = webhookCallback(bot, 'std/http');
 serve(async (req) => {
   try {
     const bodyText = await req.clone().text();
-    console.log('Incoming Webhook request body:', bodyText);
+    // PII Logging removed for security
     return await handleUpdate(req);
   } catch (err) {
     console.error('Error handling webhook update:', err);

@@ -48,7 +48,7 @@ export default function StatsDashboard({ user, supabase }: { user: any, supabase
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(today.getDate() - 30);
 
-        const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+        const thirtyDaysAgoStr = getLocalDateString(thirtyDaysAgo);
 
         const { data: logsData } = await supabase
           .from('hs_habit_logs')
