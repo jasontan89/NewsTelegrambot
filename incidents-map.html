@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SG Live Traffic Incidents 🚨</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #181c24; color: #fff; }
+    #map { width: 100%; height: 100%; z-index: 1; }
+
+    .top-container {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .top-header {
+      background: rgba(24, 28, 36, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .header-title h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-title p {
+      font-size: 11px;
+      color: #9aa0a6;
+      margin-top: 2px;
+    }
+
+    .badge {
+      background: #da3633;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      transition: all 0.3s ease;
+    }
+    .badge.loading { background: #8957e5; }
+    .badge.clear { background: #238636; }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 2px 0;
+      scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-chip {
+      background: rgba(33, 38, 45, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #c9d1d9;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .filter-chip.active {
+      background: #388bfd;
+      color: #fff;
+      border-color: #58a6ff;
+    }
+
+    /* Action buttons */
+    .action-controls {
+      position: absolute;
+      bottom: 24px;
+      right: 14px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .action-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #21262d;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      transition: transform 0.15s ease, background 0.2s;
+    }
+    .action-btn:active {
+      transform: scale(0.92);
+      background: #30363d;
+    }
+
+    /* Legend */
+    .legend-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 14px;
+      z-index: 1000;
+      background: rgba(24, 28, 36, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #8b949e;
+      display: flex;
+      gap: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+
+    /* Custom Leaflet Popups */
+    .leaflet-popup-content-wrapper {
+      background: #1c2128 !important;
+      color: #adbac7 !important;
+      border-radius: 14px !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6) !important;
+      padding: 4px !important;
+    }
+    .leaflet-popup-tip { background: #1c2128 !important; }
+    .popup-card { padding: 8px 10px; }
+    .popup-type {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .popup-type.accident { background: rgba(218, 54, 51, 0.25); color: #ff7b72; border: 1px solid #da3633; }
+    .popup-type.breakdown { background: rgba(210, 153, 34, 0.25); color: #f2cc60; border: 1px solid #d29922; }
+    .popup-type.roadwork { background: rgba(187, 128, 9, 0.25); color: #e3b341; border: 1px solid #bb8009; }
+    .popup-type.traffic { background: rgba(87, 96, 106, 0.25); color: #adbac7; border: 1px solid #768390; }
+
+    .popup-msg { font-size: 13px; color: #f0f6fc; line-height: 1.4; font-weight: 500; }
+
+    /* Marker icons */
+    .incident-marker-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border: 2px solid #fff;
+    }
+    .marker-accident { background: #da3633; animation: pulseRed 1.8s infinite; }
+    .marker-breakdown { background: #d29922; }
+    .marker-roadwork { background: #bb8009; }
+    .marker-traffic { background: #444c56; }
+
+    @keyframes pulseRed {
+      0% { box-shadow: 0 0 0 0 rgba(218, 54, 51, 0.8); }
+      70% { box-shadow: 0 0 0 12px rgba(218, 54, 51, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(218, 54, 51, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-container">
+    <div class="top-header">
+      <div class="header-title">
+        <h1>🚨 Live Traffic Radar</h1>
+        <p id="subtext">Updating live alerts...</p>
+      </div>
+      <div id="statusBadge" class="badge loading">Loading</div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-chip active" onclick="setFilter('all', this)">All Alerts</button>
+      <button class="filter-chip" onclick="setFilter('accident', this)">💥 Accidents</button>
+      <button class="filter-chip" onclick="setFilter('breakdown', this)">🚗 Breakdowns</button>
+      <button class="filter-chip" onclick="setFilter('roadwork', this)">🚧 Roadworks</button>
+      <button class="filter-chip" onclick="setFilter('traffic', this)">🚦 Heavy Traffic</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="action-controls">
+    <button class="action-btn" onclick="fetchIncidents()" title="Refresh Live Data">🔄</button>
+    <button class="action-btn" onclick="resetView()" title="Center Map">🇸🇬</button>
+  </div>
+
+  <div class="legend-bar">
+    <div class="legend-item"><span>💥</span> Accident</div>
+    <div class="legend-item"><span>🚗</span> Breakdown</div>
+    <div class="legend-item"><span>🚧</span> Roadwork</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const SG_CENTER = [1.3521, 103.8198];
+    const map = L.map('map', { zoomControl: false }).setView(SG_CENTER, 12);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap, CartoDB'
+    }).addTo(map);
+
+    let allIncidents = [];
+    let currentFilter = 'all';
+    let incidentLayer = L.layerGroup().addTo(map);
+
+    function getMarkerConfig(typeStr) {
+      const type = (typeStr || '').toLowerCase();
+      if (type.includes('accident')) {
+        return { emoji: '💥', class: 'marker-accident', category: 'accident', title: 'Accident' };
+      } else if (type.includes('breakdown')) {
+        return { emoji: '🚗', class: 'marker-breakdown', category: 'breakdown', title: 'Vehicle Breakdown' };
+      } else if (type.includes('roadwork') || type.includes('work')) {
+        return { emoji: '🚧', class: 'marker-roadwork', category: 'roadwork', title: 'Roadworks' };
+      } else {
+        return { emoji: '🚦', class: 'marker-traffic', category: 'traffic', title: 'Traffic Alert' };
+      }
+    }
+
+    async function fetchIncidents() {
+      const badge = document.getElementById('statusBadge');
+      const subtext = document.getElementById('subtext');
+      badge.textContent = 'Updating...';
+      badge.className = 'badge loading';
+
+      try {
+        const apiUrl = 'https://blcsjvifiytbznwesmyx.supabase.co/functions/v1/lta_bot/api/incidents';
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('API status ' + res.status);
+        const data = await res.json();
+
+        allIncidents = data.incidents || [];
+        renderMarkers();
+
+        const count = allIncidents.length;
+        if (count === 0) {
+          badge.textContent = 'Roads Clear ✅';
+          badge.className = 'badge clear';
+        } else {
+          badge.textContent = `${count} Incidents`;
+          badge.className = 'badge';
+        }
+
+        const now = new Date();
+        subtext.textContent = `Updated ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+
+      } catch (err) {
+        console.error('Fetch error:', err);
+        badge.textContent = 'Error Loading';
+        badge.className = 'badge loading';
+        subtext.textContent = 'Tap 🔄 to retry';
+      }
+    }
+
+    function renderMarkers() {
+      incidentLayer.clearLayers();
+
+      allIncidents.forEach(inc => {
+        if (!inc.Latitude || !inc.Longitude) return;
+
+        const config = getMarkerConfig(inc.Type);
+
+        if (currentFilter !== 'all' && config.category !== currentFilter) {
+          return;
+        }
+
+        const customIcon = L.divIcon({
+          className: '',
+          html: `<div class="incident-marker-icon ${config.class}">${config.emoji}</div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          popupAnchor: [0, -18]
+        });
+
+        const popupContent = `
+          <div class="popup-card">
+            <span class="popup-type ${config.category}">${config.title}</span>
+            <div class="popup-msg">${escapeHtml(inc.Message || 'No details provided.')}</div>
+          </div>
+        `;
+
+        const marker = L.marker([inc.Latitude, inc.Longitude], { icon: customIcon })
+          .bindPopup(popupContent);
+
+        incidentLayer.addLayer(marker);
+      });
+    }
+
+    function setFilter(filter, el) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.remove('active'));
+      el.classList.add('active');
+      renderMarkers();
+    }
+
+    function resetView() {
+      map.flyTo(SG_CENTER, 12, { duration: 1 });
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    fetchIncidents();
+    setInterval(fetchIncidents, 60000); // Auto-refresh every 60s
+  </script>
+</body>
+</html>
