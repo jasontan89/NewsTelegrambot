@@ -214,8 +214,8 @@ export function renderTaxiMapHtml(targetLat: number, targetLon: number, location
   </div>
 
   <div class="action-controls">
-    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">🔄</button>
-    <button class="action-btn" id="btn-locate" title="Center My Location">🎯</button>
+    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">&#128260;</button>
+    <button class="action-btn" id="btn-locate" title="Center My Location">&#127919;</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -235,7 +235,7 @@ export function renderTaxiMapHtml(targetLat: number, targetLon: number, location
       zoomControl: false
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19
@@ -277,7 +277,7 @@ export function renderTaxiMapHtml(targetLat: number, targetLon: number, location
       const marker = L.marker([lat, lon], { icon: userIcon }).addTo(userLayer);
       marker.bindPopup(\`
         <div class="popup-content">
-          <div class="popup-title">📍 \${title}</div>
+          <div class="popup-title">&#128205; \${title}</div>
           <div class="popup-sub">Radar Center Coordinates</div>
           <div style="font-size: 11px; color: #8b949e;">Lat: \${lat.toFixed(4)}, Lon: \${lon.toFixed(4)}</div>
         </div>
@@ -330,7 +330,7 @@ export function renderTaxiMapHtml(targetLat: number, targetLon: number, location
             m.bindPopup(\`
               <div class="popup-content">
                 <div class="popup-title">🚕 Vacant Taxi</div>
-                <div class="popup-sub">📍 ~\${Math.round(dist)}m from center</div>
+                <div class="popup-sub">&#128205; ~\${Math.round(dist)}m from center</div>
                 <div style="font-size: 11px; color: #3fb950; font-weight: 600;">Available Now (LTA Live Stream)</div>
               </div>
             \`);
@@ -355,13 +355,13 @@ export function renderTaxiMapHtml(targetLat: number, targetLon: number, location
             <div class="popup-content">
               <div class="popup-title">🚖 Taxi Stand [\${s.taxi_code}]</div>
               <div style="font-weight: 600; color: #fff; margin-bottom: 2px;">\${s.name}</div>
-              <div class="popup-sub">📍 ~\${dist}m away • \${s.type} • \${bfaBadge}</div>
+              <div class="popup-sub">&#128205; ~\${dist}m away • \${s.type} • \${bfaBadge}</div>
               <a href="\${mapsUrl}" target="_blank" class="btn-nav">🚶 Walk to Stand (\${dist}m)</a>
             </div>
           \`);
         });
 
-        badge.textContent = \`🟢 \${count1km} Taxis (1km)\`;
+        badge.textContent = \`&#128994; \${count1km} Taxis (1km)\`;
         badge.classList.remove('loading');
 
       } catch (err) {
@@ -746,7 +746,7 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
   <div class="top-panel">
     <div class="header-row">
       <div class="header-title">
-        <span>💳</span> Singapore ERP Radar
+        <span>&#128179;</span> Singapore ERP Radar
       </div>
       <div class="status-badge">
         <div class="status-dot"></div>
@@ -757,28 +757,28 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
     <!-- Vehicle Multiplier Switcher Bar -->
     <div class="vehicle-pills">
       <button class="veh-btn active" id="veh-car" onclick="setVehicle('car')">
-        🚗 Cars (1.0x)
+        &#128663; Cars (1.0x)
       </button>
       <button class="veh-btn" id="veh-moto" onclick="setVehicle('moto')">
-        🏍️ Moto (0.5x)
+        &#127949;&#65039; Moto (0.5x)
       </button>
       <button class="veh-btn" id="veh-hgv" onclick="setVehicle('hgv')">
-        🚛 Heavy (1.5x)
+        &#128667; Heavy (1.5x)
       </button>
     </div>
   </div>
 
   <!-- Horizontal Corridor Quick-Filter Bar -->
   <div class="corridor-bar">
-    <button class="corr-pill active" id="corr-ALL" onclick="setCorridor('ALL')">🌐 All Corridors</button>
-    <button class="corr-pill" id="corr-CTE" onclick="setCorridor('CTE')">🛣️ CTE</button>
-    <button class="corr-pill" id="corr-PIE" onclick="setCorridor('PIE')">🛣️ PIE</button>
-    <button class="corr-pill" id="corr-AYE" onclick="setCorridor('AYE')">🛣️ AYE</button>
-    <button class="corr-pill" id="corr-KPE" onclick="setCorridor('KPE')">🛣️ KPE</button>
-    <button class="corr-pill" id="corr-ECP_MCE" onclick="setCorridor('ECP_MCE')">🛣️ ECP / MCE</button>
-    <button class="corr-pill" id="corr-CBD" onclick="setCorridor('CBD')">🏙️ CBD Zone</button>
-    <button class="corr-pill" id="corr-ORCHARD" onclick="setCorridor('ORCHARD')">🛍️ Orchard</button>
-    <button class="corr-pill" id="corr-OUTER_RING" onclick="setCorridor('OUTER_RING')">🚗 Outer Ring</button>
+    <button class="corr-pill active" id="corr-ALL" onclick="setCorridor('ALL')">&#127760; All Corridors</button>
+    <button class="corr-pill" id="corr-CTE" onclick="setCorridor('CTE')">&#128739;&#65039; CTE</button>
+    <button class="corr-pill" id="corr-PIE" onclick="setCorridor('PIE')">&#128739;&#65039; PIE</button>
+    <button class="corr-pill" id="corr-AYE" onclick="setCorridor('AYE')">&#128739;&#65039; AYE</button>
+    <button class="corr-pill" id="corr-KPE" onclick="setCorridor('KPE')">&#128739;&#65039; KPE</button>
+    <button class="corr-pill" id="corr-ECP_MCE" onclick="setCorridor('ECP_MCE')">&#128739;&#65039; ECP / MCE</button>
+    <button class="corr-pill" id="corr-CBD" onclick="setCorridor('CBD')">&#127961;&#65039; CBD Zone</button>
+    <button class="corr-pill" id="corr-ORCHARD" onclick="setCorridor('ORCHARD')">&#128717;&#65039; Orchard</button>
+    <button class="corr-pill" id="corr-OUTER_RING" onclick="setCorridor('OUTER_RING')">&#128663; Outer Ring</button>
   </div>
 
   <!-- Map Container -->
@@ -786,17 +786,17 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
 
   <!-- Bottom Quick Stats Bar -->
   <div class="bottom-info-bar">
-    <span id="gantry-count-label">📊 Showing 27 Gantries</span>
-    <span id="active-gantry-summary" style="color: #ef4444; font-weight: 700;">🔴 0 Active</span>
+    <span id="gantry-count-label">&#128202; Showing 27 Gantries</span>
+    <span id="active-gantry-summary" style="color: #ef4444; font-weight: 700;">&#128308; 0 Active</span>
   </div>
 
   <!-- Floating Action Buttons -->
   <div class="floating-controls">
     <button class="fab-btn" id="btn-locate" title="Show My GPS Location" onclick="locateUser()">
-      🎯
+      &#127919;
     </button>
     <button class="fab-btn" id="btn-refresh" title="Refresh Live ERP Rates" onclick="refreshERPData()">
-      🔄
+      &#128260;
     </button>
   </div>
 
@@ -901,11 +901,11 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
         let distText = '';
         if (userLat && userLon) {
           const dKm = calculateDistance(userLat, userLon, g.lat, g.lon);
-          distText = ' • 📍 ' + dKm + 'km away';
+          distText = ' • &#128205; ' + dKm + 'km away';
         }
 
         const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + g.lat + ',' + g.lon;
-        const statusMsg = vRates.message || (isActive ? ('🔴 ACTIVE: $' + rateVal.toFixed(2)) : '🟢 FREE ($0.00)');
+        const statusMsg = vRates.message || (isActive ? ('&#128308; ACTIVE: $' + rateVal.toFixed(2)) : '&#128994; FREE ($0.00)');
 
         let tableRows = '';
         (g.slotsWeekday || []).forEach(s => {
@@ -915,30 +915,30 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
           
           const isCurSlot = vRates.activeSlot && vRates.activeSlot.start === s.start && vRates.activeSlot.end === s.end;
           const rowClass = isCurSlot ? 'class=\"cur-slot\"' : '';
-          const activeMarker = isCurSlot ? ' ◀️ ACTIVE' : '';
+          const activeMarker = isCurSlot ? ' &#9664;&#65039; ACTIVE' : '';
           tableRows += '<tr ' + rowClass + '><td>' + s.start + ' – ' + s.end + '</td><td style=\"text-align:right;\">$' + r.toFixed(2) + activeMarker + '</td></tr>';
         });
 
         const popupHtml = 
           '<div class=\"popup-container\">' +
             '<div class=\"popup-title\">' + g.name + '</div>' +
-            '<div class=\"popup-sub\">🛣️ ' + g.corridorName + distText + '<br>🧭 ' + g.direction + '</div>' +
+            '<div class=\"popup-sub\">&#128739;&#65039; ' + g.corridorName + distText + '<br>&#129517; ' + g.direction + '</div>' +
             '<div class=\"popup-status-box\">' +
               '<div class=\"popup-status-text\">' + statusMsg + '</div>' +
-              (vRates.nextSlot ? ('<div class=\"popup-next-text\">⏳ Next: ' + vRates.nextSlot.start + ' – ' + vRates.nextSlot.end + ' ➔ $' + vRates.nextSlot.rate.toFixed(2) + '</div>') : '') +
+              (vRates.nextSlot ? ('<div class=\"popup-next-text\">&#9203; Next: ' + vRates.nextSlot.start + ' – ' + vRates.nextSlot.end + ' ➔ $' + vRates.nextSlot.rate.toFixed(2) + '</div>') : '') +
             '</div>' +
             '<table class=\"popup-table\">' +
               '<thead><tr><th>Time Window</th><th style=\"text-align:right;\">Rate</th></tr></thead>' +
               '<tbody>' + tableRows + '</tbody>' +
             '</table>' +
-            '<a href=\"' + mapsUrl + '\" target=\"_blank\" class=\"btn-maps\">🗺️ Open Directions in Maps</a>' +
+            '<a href=\"' + mapsUrl + '\" target=\"_blank\" class=\"btn-maps\">&#128506;&#65039; Open Directions in Maps</a>' +
           '</div>';
 
         marker.bindPopup(popupHtml);
       });
 
-      document.getElementById('gantry-count-label').innerText = '📊 ' + filtered.length + ' Gantries';
-      document.getElementById('active-gantry-summary').innerText = '🔴 ' + activeCount + ' Active';
+      document.getElementById('gantry-count-label').innerText = '&#128202; ' + filtered.length + ' Gantries';
+      document.getElementById('active-gantry-summary').innerText = '&#128308; ' + activeCount + ' Active';
       document.getElementById('active-gantry-summary').style.color = activeCount > 0 ? '#ef4444' : '#10b981';
     }
 
@@ -980,7 +980,7 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
           });
 
           userMarker = L.marker([userLat, userLon], { icon: userIcon }).addTo(userLayer);
-          userMarker.bindPopup('<div style=\"font-weight:700; font-size:12px; color:#3b82f6;\">📍 You are here</div>');
+          userMarker.bindPopup('<div style=\"font-weight:700; font-size:12px; color:#3b82f6;\">&#128205; You are here</div>');
 
           userCircle = L.circle([userLat, userLon], {
             radius: Math.max(accuracy, 100),

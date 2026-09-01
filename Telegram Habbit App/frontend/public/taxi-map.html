@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Singapore Taxi Radar</title>
+  <title>SG Taxi Radar 🇸🇬</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -40,6 +40,10 @@
       font-size: 12px;
       color: #9aa0a6;
       margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
     }
     .badge {
       background: #238636;
@@ -198,8 +202,8 @@
 
   <div class="top-header">
     <div class="header-title">
-      <h1>?? SG Taxi Radar</h1>
-      <p id="loc-name">Locating...</p>
+      <h1>&#128661; SG Taxi Radar</h1>
+      <p id="loc-name">Loading location...</p>
     </div>
     <div id="taxi-badge" class="badge">Scanning...</div>
   </div>
@@ -207,14 +211,14 @@
   <div id="map"></div>
 
   <div class="legend-bar">
-    <div class="legend-item"><span>??</span> Searched Location</div>
-    <div class="legend-item"><span>??</span> Vacant Taxi (Live)</div>
-    <div class="legend-item"><span>??</span> Official Taxi Stand</div>
+    <div class="legend-item"><span>&#128309;</span> Searched Location</div>
+    <div class="legend-item"><span>&#128661;</span> Vacant Taxi (Live)</div>
+    <div class="legend-item"><span>&#128662;</span> Official Taxi Stand</div>
   </div>
 
   <div class="action-controls">
-    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">??</button>
-    <button class="action-btn" id="btn-locate" title="Center My Location">??</button>
+    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">&#128260;</button>
+    <button class="action-btn" id="btn-locate" title="Center My Location">&#127919;</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -225,9 +229,10 @@
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    let centerLat = parseFloat(urlParams.get("lat") || "1.3048");
-    let centerLon = parseFloat(urlParams.get("lon") || "103.8318");
-    let locTitle = urlParams.get("name") || "Singapore";
+    let centerLat = parseFloat(urlParams.get('lat') || '1.3048');
+    let centerLon = parseFloat(urlParams.get('lon') || '103.8318');
+    let locTitle = urlParams.get('name') || 'Orchard Area';
+
     document.getElementById('loc-name').textContent = locTitle;
 
     const map = L.map('map', {
@@ -236,7 +241,7 @@
       zoomControl: false
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19
@@ -251,6 +256,23 @@
       userLayer.clearLayers();
       rangeLayer.clearLayers();
 
+      L.circle([lat, lon], {
+        radius: 500,
+        color: '#388bfd',
+        fillColor: '#388bfd',
+        fillOpacity: 0.08,
+        weight: 1.5,
+        dashArray: '4, 4'
+      }).addTo(rangeLayer);
+
+      L.circle([lat, lon], {
+        radius: 1000,
+        color: '#8b949e',
+        fillOpacity: 0.02,
+        weight: 1,
+        dashArray: '2, 6'
+      }).addTo(rangeLayer);
+
       const userIcon = L.divIcon({
         className: 'custom-div-icon',
         html: '<div class="user-marker"></div>',
@@ -258,31 +280,26 @@
         iconAnchor: [11, 11]
       });
 
-      L.marker([lat, lon], { icon: userIcon })
-        .bindPopup(`<b>${title}</b><br><span style="font-size:11px; color:#888;">Search Origin Point</span>`)
-        .addTo(userLayer);
-
-      L.circle([lat, lon], {
-        radius: 600,
-        color: '#1f6feb',
-        weight: 1.5,
-        fillColor: '#1f6feb',
-        fillOpacity: 0.08,
-        dashArray: '4, 8'
-      }).addTo(rangeLayer);
+      const marker = L.marker([lat, lon], { icon: userIcon }).addTo(userLayer);
+      marker.bindPopup(`
+        <div class="popup-content">
+          <div class="popup-title">📍 ${title}</div>
+          <div class="popup-sub">Radar Center Coordinates</div>
+          <div style="font-size: 11px; color: #8b949e;">Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}</div>
+        </div>
+      `);
     }
 
+    updateCenterPin(centerLat, centerLon, locTitle);
+
     function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const phi1 = lat1 * Math.PI / 180;
-      const phi2 = lat2 * Math.PI / 180;
-      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-      const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-                Math.cos(phi1) * Math.cos(phi2) *
-                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     async function loadTaxiData(lat, lon) {
@@ -291,84 +308,76 @@
       badge.classList.add('loading');
 
       try {
-        const res = await fetch(`https://blcsjvifiytbznwesmyx.supabase.co/functions/v1/lta_bot/api/taxis?lat=${lat}&lon=${lon}`);
-        if (!res.ok) throw new Error('API request failed');
+        const apiUrl = `https://blcsjvifiytbznwesmyx.supabase.co/functions/v1/lta_bot/api/taxis?lat=${lat}&lon=${lon}`;
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('API fetch failed');
         const data = await res.json();
 
         taxiLayer.clearLayers();
         standLayer.clearLayers();
 
-        let nearbyTaxisCount = 0;
-        let totalVacant = 0;
+        let count500m = 0;
+        let count1km = 0;
 
-        if (data.taxis && data.taxis.length > 0) {
-          const coords = data.taxis[0].TaxiPositions || [];
-          totalVacant = coords.length;
+        const taxis = data.taxis || [];
+        taxis.forEach(t => {
+          const dist = calculateDistance(lat, lon, t.Latitude, t.Longitude);
+          if (dist <= 500) count500m++;
+          if (dist <= 1000) count1km++;
 
-          coords.forEach(coord => {
-            const tLat = coord.Latitude;
-            const tLon = coord.Longitude;
-            const dist = calculateDistance(lat, lon, tLat, tLon);
-
-            if (dist <= 1500) {
-              if (dist <= 600) nearbyTaxisCount++;
-
-              const taxiIcon = L.divIcon({
-                className: 'custom-taxi-icon',
-                html: '<div class="taxi-marker">??</div>',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
-              });
-
-              L.marker([tLat, tLon], { icon: taxiIcon })
-                .bindPopup(`
-                  <div class="popup-content">
-                    <div class="popup-title">?? Vacant Taxi</div>
-                    <div class="popup-sub">${Math.round(dist)}m away from search point</div>
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${tLat},${tLon}" target="_blank" class="btn-nav">Directions</a>
-                  </div>
-                `)
-                .addTo(taxiLayer);
-            }
-          });
-        }
-
-        if (data.stands && data.stands.length > 0) {
-          data.stands.forEach(stand => {
-            const sLat = stand.latitude;
-            const sLon = stand.longitude;
-            const dist = calculateDistance(lat, lon, sLat, sLon);
-
-            const standIcon = L.divIcon({
-              className: 'custom-stand-icon',
-              html: '<div class="stand-marker">???</div>',
-              iconSize: [30, 30],
-              iconAnchor: [15, 15]
+          if (dist <= 2500) {
+            const taxiIcon = L.divIcon({
+              className: 'custom-div-icon',
+              html: '<div class="taxi-marker">&#128661;</div>',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16]
             });
 
-            L.marker([sLat, sLon], { icon: standIcon })
-              .bindPopup(`
-                <div class="popup-content">
-                  <div class="popup-title">${stand.taxi_stand_id} - ${stand.name || 'Taxi Stand'}</div>
-                  <div class="popup-sub">${stand.road_name || ''} (${Math.round(dist)}m away)</div>
-                  <div style="font-size:11px; margin-bottom:4px;">Capacity: <b>${stand.taxi_count || 'Standard'}</b></div>
-                  <a href="https://www.google.com/maps/dir/?api=1&destination=${sLat},${sLon}" target="_blank" class="btn-nav">Walk to Stand</a>
-                </div>
-              `)
-              .addTo(standLayer);
-          });
-        }
+            const m = L.marker([t.Latitude, t.Longitude], { icon: taxiIcon }).addTo(taxiLayer);
+            m.bindPopup(`
+              <div class="popup-content">
+                <div class="popup-title">&#128661; Vacant Taxi</div>
+                <div class="popup-sub">📍 ~${Math.round(dist)}m from center</div>
+                <div style="font-size: 11px; color: #3fb950; font-weight: 600;">Available Now (LTA Live Stream)</div>
+              </div>
+            `);
+          }
+        });
 
-        badge.textContent = `${nearbyTaxisCount} within 600m (${totalVacant} islandwide)`;
+        const stands = data.stands || [];
+        stands.forEach(s => {
+          const dist = Math.round(calculateDistance(lat, lon, s.latitude, s.longitude));
+          const standIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div class="stand-marker">&#128662;</div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          });
+
+          const m = L.marker([s.latitude, s.longitude], { icon: standIcon }).addTo(standLayer);
+          const bfaBadge = s.bfa === 'Yes' ? '♿ Barrier-Free' : 'Standard';
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}`;
+          
+          m.bindPopup(`
+            <div class="popup-content">
+              <div class="popup-title">&#128662; Taxi Stand [${s.taxi_code}]</div>
+              <div style="font-weight: 600; color: #fff; margin-bottom: 2px;">${s.name}</div>
+              <div class="popup-sub">📍 ~${dist}m away • ${s.type} • ${bfaBadge}</div>
+              <a href="${mapsUrl}" target="_blank" class="btn-nav">🚶 Walk to Stand (${dist}m)</a>
+            </div>
+          `);
+        });
+
+        badge.textContent = `🟢 ${count1km} Taxis (1km)`;
         badge.classList.remove('loading');
+
       } catch (err) {
-        console.error(err);
-        badge.textContent = 'Data Error';
+        console.error('Error fetching live taxis:', err);
+        badge.textContent = '⚠️ Offline';
         badge.classList.remove('loading');
       }
     }
 
-    updateCenterPin(centerLat, centerLon, locTitle);
     loadTaxiData(centerLat, centerLon);
 
     document.getElementById('btn-refresh').addEventListener('click', () => {
