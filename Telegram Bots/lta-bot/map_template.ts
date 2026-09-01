@@ -824,7 +824,7 @@ export function renderERPMapHtml(initialVehicle: string = "car", initialCorridor
     }).setView([1.3521, 103.8198], 12);
 
     // High contrast dark basemap tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
 
