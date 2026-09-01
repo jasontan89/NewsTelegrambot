@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Singapore Taxi Radar</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #181c24; color: #fff; }
+    #map { width: 100%; height: 100%; z-index: 1; }
+
+    .top-header {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1000;
+      background: rgba(24, 28, 36, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .header-title h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .header-title p {
+      font-size: 12px;
+      color: #9aa0a6;
+      margin-top: 1px;
+    }
+    .badge {
+      background: #238636;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      transition: all 0.3s ease;
+    }
+    .badge.loading {
+      background: #8957e5;
+    }
+
+    .action-controls {
+      position: absolute;
+      bottom: 24px;
+      right: 14px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .action-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #21262d;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      transition: transform 0.15s ease, background 0.2s;
+    }
+    .action-btn:active {
+      transform: scale(0.92);
+      background: #30363d;
+    }
+
+    .legend-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 14px;
+      z-index: 1000;
+      background: rgba(24, 28, 36, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      color: #c9d1d9;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-marker {
+      width: 22px;
+      height: 22px;
+      background: #1f6feb;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 6px rgba(31, 111, 235, 0.35);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(31, 111, 235, 0.6); }
+      70% { box-shadow: 0 0 0 14px rgba(31, 111, 235, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(31, 111, 235, 0); }
+    }
+
+    .taxi-marker {
+      width: 32px;
+      height: 32px;
+      background: #f1c40f;
+      border: 2px solid #2c3e50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .taxi-marker:hover {
+      transform: scale(1.18);
+    }
+
+    .stand-marker {
+      width: 30px;
+      height: 30px;
+      background: #0969da;
+      border: 2px solid #fff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      cursor: pointer;
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: #1f242d;
+      color: #fff;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .leaflet-popup-tip {
+      background: #1f242d;
+    }
+    .popup-content {
+      padding: 4px;
+      font-size: 13px;
+    }
+    .popup-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #58a6ff;
+    }
+    .popup-sub {
+      color: #8b949e;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .btn-nav {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #238636;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-header">
+    <div class="header-title">
+      <h1>?? SG Taxi Radar</h1>
+      <p id="loc-name">Locating...</p>
+    </div>
+    <div id="taxi-badge" class="badge">Scanning...</div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend-bar">
+    <div class="legend-item"><span>??</span> Searched Location</div>
+    <div class="legend-item"><span>??</span> Vacant Taxi (Live)</div>
+    <div class="legend-item"><span>??</span> Official Taxi Stand</div>
+  </div>
+
+  <div class="action-controls">
+    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">??</button>
+    <button class="action-btn" id="btn-locate" title="Center My Location">??</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let centerLat = parseFloat(urlParams.get("lat") || "1.3048");
+    let centerLon = parseFloat(urlParams.get("lon") || "103.8318");
+    let locTitle = urlParams.get("name") || "Singapore";
+    document.getElementById('loc-name').textContent = locTitle;
+
+    const map = L.map('map', {
+      center: [centerLat, centerLon],
+      zoom: 16,
+      zoomControl: false
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    const userLayer = L.layerGroup().addTo(map);
+    const taxiLayer = L.layerGroup().addTo(map);
+    const standLayer = L.layerGroup().addTo(map);
+    const rangeLayer = L.layerGroup().addTo(map);
+
+    function updateCenterPin(lat, lon, title) {
+      userLayer.clearLayers();
+      rangeLayer.clearLayers();
+
+      const userIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: '<div class="user-marker"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+      });
+
+      L.marker([lat, lon], { icon: userIcon })
+        .bindPopup(`<b>${title}</b><br><span style="font-size:11px; color:#888;">Search Origin Point</span>`)
+        .addTo(userLayer);
+
+      L.circle([lat, lon], {
+        radius: 600,
+        color: '#1f6feb',
+        weight: 1.5,
+        fillColor: '#1f6feb',
+        fillOpacity: 0.08,
+        dashArray: '4, 8'
+      }).addTo(rangeLayer);
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const phi1 = lat1 * Math.PI / 180;
+      const phi2 = lat2 * Math.PI / 180;
+      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+      const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    async function loadTaxiData(lat, lon) {
+      const badge = document.getElementById('taxi-badge');
+      badge.textContent = 'Updating...';
+      badge.classList.add('loading');
+
+      try {
+        const res = await fetch(`https://blcsjvifiytbznwesmyx.supabase.co/functions/v1/lta_bot/api/taxis?lat=${lat}&lon=${lon}`);
+        if (!res.ok) throw new Error('API request failed');
+        const data = await res.json();
+
+        taxiLayer.clearLayers();
+        standLayer.clearLayers();
+
+        let nearbyTaxisCount = 0;
+        let totalVacant = 0;
+
+        if (data.taxis && data.taxis.length > 0) {
+          const coords = data.taxis[0].TaxiPositions || [];
+          totalVacant = coords.length;
+
+          coords.forEach(coord => {
+            const tLat = coord.Latitude;
+            const tLon = coord.Longitude;
+            const dist = calculateDistance(lat, lon, tLat, tLon);
+
+            if (dist <= 1500) {
+              if (dist <= 600) nearbyTaxisCount++;
+
+              const taxiIcon = L.divIcon({
+                className: 'custom-taxi-icon',
+                html: '<div class="taxi-marker">??</div>',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+              });
+
+              L.marker([tLat, tLon], { icon: taxiIcon })
+                .bindPopup(`
+                  <div class="popup-content">
+                    <div class="popup-title">?? Vacant Taxi</div>
+                    <div class="popup-sub">${Math.round(dist)}m away from search point</div>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${tLat},${tLon}" target="_blank" class="btn-nav">Directions</a>
+                  </div>
+                `)
+                .addTo(taxiLayer);
+            }
+          });
+        }
+
+        if (data.stands && data.stands.length > 0) {
+          data.stands.forEach(stand => {
+            const sLat = stand.latitude;
+            const sLon = stand.longitude;
+            const dist = calculateDistance(lat, lon, sLat, sLon);
+
+            const standIcon = L.divIcon({
+              className: 'custom-stand-icon',
+              html: '<div class="stand-marker">???</div>',
+              iconSize: [30, 30],
+              iconAnchor: [15, 15]
+            });
+
+            L.marker([sLat, sLon], { icon: standIcon })
+              .bindPopup(`
+                <div class="popup-content">
+                  <div class="popup-title">${stand.taxi_stand_id} - ${stand.name || 'Taxi Stand'}</div>
+                  <div class="popup-sub">${stand.road_name || ''} (${Math.round(dist)}m away)</div>
+                  <div style="font-size:11px; margin-bottom:4px;">Capacity: <b>${stand.taxi_count || 'Standard'}</b></div>
+                  <a href="https://www.google.com/maps/dir/?api=1&destination=${sLat},${sLon}" target="_blank" class="btn-nav">Walk to Stand</a>
+                </div>
+              `)
+              .addTo(standLayer);
+          });
+        }
+
+        badge.textContent = `${nearbyTaxisCount} within 600m (${totalVacant} islandwide)`;
+        badge.classList.remove('loading');
+      } catch (err) {
+        console.error(err);
+        badge.textContent = 'Data Error';
+        badge.classList.remove('loading');
+      }
+    }
+
+    updateCenterPin(centerLat, centerLon, locTitle);
+    loadTaxiData(centerLat, centerLon);
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      loadTaxiData(centerLat, centerLon);
+    });
+
+    document.getElementById('btn-locate').addEventListener('click', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            centerLat = pos.coords.latitude;
+            centerLon = pos.coords.longitude;
+            locTitle = "Your Current Location";
+            document.getElementById('loc-name').textContent = locTitle;
+            map.flyTo([centerLat, centerLon], 16, { animate: true, duration: 1.2 });
+            updateCenterPin(centerLat, centerLon, locTitle);
+            loadTaxiData(centerLat, centerLon);
+          },
+          (err) => {
+            alert("Could not access your GPS location. Please check device location permissions.");
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      }
+    });
+  </script>
+</body>
+</html>
