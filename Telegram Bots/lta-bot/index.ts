@@ -4,7 +4,9 @@ import { fetchBusArrival, fetchTrafficImages, fetchCarparkAvailability, fetchTra
 import { 
   addFavorite, getFavorites, removeFavorite, getNearbyStops, getNearbyTaxiStands, supabase,
   findDirectBusRoutes, findOneTransferBusRoutes, getMRTSubscriptions, toggleMRTSubscription,
-  setAllMRTSubscriptions, getAllSubscribersForLine, getMRTAlertState, updateMRTAlertState
+  setAllMRTSubscriptions, getAllSubscribersForLine, getMRTAlertState, updateMRTAlertState,
+  getBusStopByCode, searchBusStops, createAlightingAlarm, getActiveAlightingAlarm,
+  updateAlightingTelemetry, cancelAlightingAlarm
 } from "./db.ts";
 import { ERP_CORRIDORS, ERP_GANTRIES, getCurrentERPRate, calculateVehicleRate, searchERPGantries, getGantriesByCorridor, getSGTHourAndMinute } from "./erp_data.ts";
 
@@ -223,6 +225,7 @@ function getTransportMenuKeyboard() {
     .text("🚆 MRT Crowds", "menu_mrt")
     .text("⚠️ Train Disruptions", "menu_disruptions").row()
     .text("🔔 MRT Disruption Alerts", "menu_mrt_alerts").row()
+    .text("🔔 Bus Alighting Alarm", "menu_alight").row()
     .text("🔙 Back to Main Menu", "menu_main");
 }
 
@@ -232,6 +235,7 @@ function getDrivingMenuKeyboard() {
     .text("⚡ EV Charging Stations", "menu_ev").row()
     .text("💳 ERP Gantry Rates", "menu_erp")
     .text("📷 Traffic Cameras", "menu_traffic").row()
+    .text("🇸🇬🇲🇾 Causeway Checkpoint Radar", "menu_checkpoint").row()
     .text("🚨 Live Traffic Alerts", "menu_incidents")
     .text("🚕 Taxi Locator & Stands", "menu_taxis").row()
     .text("🔙 Back to Main Menu", "menu_main");
@@ -297,16 +301,18 @@ function getHelpText(): string {
     `🚌 <b>Bus Services & Stops</b>\n` +
     `• <code>/bus 09048</code> or <code>/bus Lucky Plaza</code> — Live bus arrival timings & crowd levels\n` +
     `• <code>/route 106</code> — Full route stops sequence, distance, and operating hours\n` +
-    `• <code>/goto Clementi to Orchard</code> — Direct & 1-transfer journey planner with live ETAs\n\n` +
+    `• <code>/goto Clementi to Orchard</code> — Direct & 1-transfer journey planner with live ETAs\n` +
+    `• <code>/alight 09048</code> or <code>/alight Orchard</code> — Live bus alighting alarm & trip tracker\n\n` +
     `🚆 <b>MRT & LRT Network</b>\n` +
     `• <code>/mrt NSL</code> — Live platform crowd density indicators\n` +
     `• <code>/disruptions</code> — Network health status & free shuttle/bus bridging advice\n` +
     `• <code>/mrtalerts</code> — Instant push notification subscriptions for breakdown alerts\n\n` +
     `🚗 <b>Driving, Carparks, EV & Traffic</b>\n` +
+    `• <code>/checkpoint</code> — 🇸🇬🇲🇾 Real-time Woodlands Causeway & Tuas Second Link camera radar\n` +
     `• <code>/erp CTE</code> or <code>/erp Orchard</code> — Real-time active rates, vehicle multipliers & operating hours\n` +
     `• <code>/ev Tampines Mall</code> or <code>/ev 529510</code> — Live EV chargers, plug speeds (DC Fast/AC), rates & availability\n` +
     `• <code>/carpark Suntec</code> — Real-time lot availability & Google Maps driving directions\n` +
-    `• <code>/traffic</code> — Live expressway & Woodlands/Tuas checkpoint camera snapshots\n` +
+    `• <code>/traffic</code> — Live expressway & checkpoint traffic camera snapshots\n` +
     `• <code>/incidents PIE</code> — Real-time accidents, heavy traffic, and interactive radar map\n\n` +
     `🚕 <b>Taxis & Bicycles</b>\n` +
     `• <code>/taxi Orchard</code> — Vacant taxis count & 316 official barrier-free taxi stands\n` +
@@ -2149,8 +2155,350 @@ bot.command("help", async (ctx) => {
   await ctx.reply(getHelpText(), { parse_mode: "HTML", reply_markup: getHelpKeyboard() });
 });
 
+// ==========================================
+// 🇸🇬🇲🇾 Causeway & Tuas Checkpoint Radar Helpers & Commands
+// ==========================================
+
+async function showCheckpointHub(ctx: any, isEdit: boolean = false) {
+  const sgtStr = new Date().toLocaleTimeString("en-SG", {
+    timeZone: "Asia/Singapore",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  let incidentNotes = "";
+  try {
+    const incData = await fetchTrafficIncidents();
+    const incs = incData?.value || [];
+    const bkeIncs = incs.filter((i: any) => {
+      const msg = (i.Message || "").toLowerCase();
+      return msg.includes("bke") || msg.includes("woodlands") || msg.includes("causeway") || msg.includes("sle");
+    });
+    const ayeIncs = incs.filter((i: any) => {
+      const msg = (i.Message || "").toLowerCase();
+      return msg.includes("aye") || msg.includes("tuas") || msg.includes("second link");
+    });
+
+    if (bkeIncs.length > 0) {
+      incidentNotes += `\n⚠️ <b>BKE/Woodlands Incident:</b> ${bkeIncs[0].Message}\n`;
+    }
+    if (ayeIncs.length > 0) {
+      incidentNotes += `\n⚠️ <b>AYE/Tuas Incident:</b> ${ayeIncs[0].Message}\n`;
+    }
+  } catch (e) {
+    console.error("Error fetching checkpoint incidents", e);
+  }
+
+  const text =
+    `🇸🇬🇲🇾 <b>Singapore – Malaysia Checkpoint Radar</b>\n` +
+    `🕒 <b>Current Time:</b> <code>${sgtStr} SGT</code>\n\n` +
+    `Real-time traffic camera monitoring & highway approach radar for Causeway and Second Link crossings:\n\n` +
+    `🌉 <b>Woodlands Causeway Hub (BKE)</b>\n` +
+    `• Woodlands Checkpoint (Inbound & Outbound)\n` +
+    `• Causeway Viaduct towards Johor Bahru\n` +
+    `• BKE approach before Woodlands Flyover\n\n` +
+    `🚗 <b>Tuas Second Link Hub (AYE)</b>\n` +
+    `• AYE near Tuas Checkpoint\n` +
+    `• Tuas West Road\n` +
+    `• AYE approach before Pandan Loop\n` +
+    (incidentNotes ? `${incidentNotes}\n` : `\n✅ <i>No major accidents or breakdowns reported on checkpoint expressway approaches.</i>\n\n`) +
+    `Select a border crossing below to inspect live camera feeds:`;
+
+  const keyboard = new InlineKeyboard()
+    .text("🌉 Woodlands Causeway (3 Cams)", "checkpoint_woodlands").row()
+    .text("🚗 Tuas Second Link (3 Cams)", "checkpoint_tuas").row()
+    .text("🔄 Refresh Status", "checkpoint_refresh")
+    .text("🔙 Back to Menu", "menu_main");
+
+  if (isEdit) {
+    return await safeEditOrSend(ctx, text, keyboard, "HTML");
+  } else {
+    return await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
+  }
+}
+
+async function showWoodlandsCheckpoint(ctx: any) {
+  try {
+    await ctx.answerCallbackQuery?.({ text: "Fetching Woodlands Causeway cameras..." }).catch(() => {});
+  } catch (_) {}
+
+  try {
+    const data = await fetchTrafficImages();
+    const cams = data?.value || [];
+    const cam2701 = cams.find((c: any) => String(c.CameraID) === "2701");
+    const cam2702 = cams.find((c: any) => String(c.CameraID) === "2702");
+    const cam2704 = cams.find((c: any) => String(c.CameraID) === "2704");
+
+    const activeCams = [cam2701, cam2702, cam2704].filter(Boolean);
+    if (activeCams.length === 0) {
+      return await ctx.reply("❌ Unable to load Woodlands Checkpoint cameras at this time. Please try again shortly.");
+    }
+
+    const sgtTime = new Date().toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" });
+
+    const media: any[] = [
+      {
+        type: "photo",
+        media: cam2701?.ImageLink || activeCams[0].ImageLink,
+        caption: `🌉 <b>Woodlands Causeway Live Radar</b> (3 Views)\n\n` +
+                 `1️⃣ <b>Woodlands Checkpoint</b> (Cam 2701)\n` +
+                 `2️⃣ <b>Causeway Viaduct towards JB</b> (Cam 2702)\n` +
+                 `3️⃣ <b>BKE approach Bef Flyover</b> (Cam 2704)\n\n` +
+                 `🕒 <b>Captured:</b> <code>${sgtTime} SGT</code>`,
+        parse_mode: "HTML"
+      }
+    ];
+
+    if (cam2702?.ImageLink) {
+      media.push({ type: "photo", media: cam2702.ImageLink });
+    }
+    if (cam2704?.ImageLink) {
+      media.push({ type: "photo", media: cam2704.ImageLink });
+    }
+
+    const kb = new InlineKeyboard()
+      .text("🔄 Refresh Woodlands Cams", "checkpoint_woodlands").row()
+      .text("🚗 Switch to Tuas Second Link", "checkpoint_tuas").row()
+      .url("🗺️ View Causeway on Google Maps", "https://www.google.com/maps/search/?api=1&query=1.4470,103.7716").row()
+      .text("🔙 Back to Checkpoint Hub", "checkpoint_hub");
+
+    await ctx.replyWithMediaGroup(media).catch(async () => {
+      await ctx.replyWithPhoto(cam2701?.ImageLink || activeCams[0].ImageLink, {
+        caption: `🌉 <b>Woodlands Causeway Live Snapshot</b>\n🕒 <code>${sgtTime} SGT</code>`,
+        parse_mode: "HTML"
+      });
+    });
+
+    await ctx.reply("👆 <b>Live Woodlands Causeway snapshots displayed above.</b>", {
+      parse_mode: "HTML",
+      reply_markup: kb
+    });
+  } catch (e: any) {
+    console.error("Error loading Woodlands cameras:", e);
+    await ctx.reply("⚠️ Failed to load camera snapshots. Please try again.");
+  }
+}
+
+async function showTuasCheckpoint(ctx: any) {
+  try {
+    await ctx.answerCallbackQuery?.({ text: "Fetching Tuas Second Link cameras..." }).catch(() => {});
+  } catch (_) {}
+
+  try {
+    const data = await fetchTrafficImages();
+    const cams = data?.value || [];
+    const cam4712 = cams.find((c: any) => String(c.CameraID) === "4712");
+    const cam4713 = cams.find((c: any) => String(c.CameraID) === "4713");
+    const cam4703 = cams.find((c: any) => String(c.CameraID) === "4703");
+
+    const activeCams = [cam4712, cam4713, cam4703].filter(Boolean);
+    if (activeCams.length === 0) {
+      return await ctx.reply("❌ Unable to load Tuas Checkpoint cameras at this time. Please try again shortly.");
+    }
+
+    const sgtTime = new Date().toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" });
+
+    const media: any[] = [
+      {
+        type: "photo",
+        media: cam4712?.ImageLink || activeCams[0].ImageLink,
+        caption: `🚗 <b>Tuas Second Link Live Radar</b> (3 Views)\n\n` +
+                 `1️⃣ <b>AYE Near Tuas Checkpoint</b> (Cam 4712)\n` +
+                 `2️⃣ <b>Tuas West Road</b> (Cam 4713)\n` +
+                 `3️⃣ <b>AYE Approach Bef Pandan Loop</b> (Cam 4703)\n\n` +
+                 `🕒 <b>Captured:</b> <code>${sgtTime} SGT</code>`,
+        parse_mode: "HTML"
+      }
+    ];
+
+    if (cam4713?.ImageLink) {
+      media.push({ type: "photo", media: cam4713.ImageLink });
+    }
+    if (cam4703?.ImageLink) {
+      media.push({ type: "photo", media: cam4703.ImageLink });
+    }
+
+    const kb = new InlineKeyboard()
+      .text("🔄 Refresh Tuas Cams", "checkpoint_tuas").row()
+      .text("🌉 Switch to Woodlands Causeway", "checkpoint_woodlands").row()
+      .url("🗺️ View Tuas on Google Maps", "https://www.google.com/maps/search/?api=1&query=1.3412,103.6439").row()
+      .text("🔙 Back to Checkpoint Hub", "checkpoint_hub");
+
+    await ctx.replyWithMediaGroup(media).catch(async () => {
+      await ctx.replyWithPhoto(cam4712?.ImageLink || activeCams[0].ImageLink, {
+        caption: `🚗 <b>Tuas Second Link Live Snapshot</b>\n🕒 <code>${sgtTime} SGT</code>`,
+        parse_mode: "HTML"
+      });
+    });
+
+    await ctx.reply("👆 <b>Live Tuas Second Link snapshots displayed above.</b>", {
+      parse_mode: "HTML",
+      reply_markup: kb
+    });
+  } catch (e: any) {
+    console.error("Error loading Tuas cameras:", e);
+    await ctx.reply("⚠️ Failed to load camera snapshots. Please try again.");
+  }
+}
+
+bot.command(["checkpoint", "causeway", "customs", "woodlands", "tuas"], async (ctx) => {
+  await showCheckpointHub(ctx, false);
+});
+
+// ==========================================
+// 🔔 Bus Alighting Alarm Helpers & Commands
+// ==========================================
+
+async function showAlightPrompt(ctx: any, query: string = "") {
+  const cleanQ = (query || "").trim();
+  const userId = ctx.from?.id;
+
+  if (userId) {
+    const existing = await getActiveAlightingAlarm(userId);
+    if (existing && !cleanQ) {
+      const kb = new InlineKeyboard()
+        .text("⏹️ Cancel Active Alarm", "alight_cancel").row()
+        .text("📊 Check Alarm Status", "alight_status").row()
+        .text("🔙 Back to Transport Menu", "cat_transport");
+
+      return await ctx.reply(
+        `🔔 <b>Active Alighting Alarm Running!</b>\n\n` +
+        `🎯 <b>Destination:</b> <b>${existing.dest_name}</b> (Stop <code>${existing.dest_bus_stop_code}</code>)\n` +
+        `🔔 <b>Trigger Distance:</b> <b>${existing.threshold_meters}m</b>\n` +
+        (existing.last_distance ? `📏 <b>Last Measured Distance:</b> ~<b>${Math.round(existing.last_distance)}m</b>\n` : "") +
+        `\n📡 <i>Ensure you have shared your Live Location in Telegram so the bot can track your bus trip!</i>`,
+        { parse_mode: "HTML", reply_markup: kb }
+      );
+    }
+  }
+
+  if (/^\d{5}$/.test(cleanQ)) {
+    const stop = await getBusStopByCode(cleanQ);
+    if (stop) {
+      return await promptAlightThreshold(ctx, stop);
+    } else {
+      return await ctx.reply(`❌ Bus stop <code>${cleanQ}</code> not found. Please verify the 5-digit code.`);
+    }
+  }
+
+  if (cleanQ.length >= 2) {
+    const matches = await searchBusStops(cleanQ, 5);
+    if (matches.length === 0) {
+      return await ctx.reply(`❌ No bus stops found matching "<b>${cleanQ}</b>".\n\nTry entering a 5-digit stop code (e.g. <code>/alight 09048</code>) or another road/landmark!`, { parse_mode: "HTML" });
+    }
+
+    const kb = new InlineKeyboard();
+    matches.forEach((s: any) => {
+      kb.text(`[${s.bus_stop_code}] ${s.description.substring(0, 24)}`, `alight_pick_${s.bus_stop_code}`).row();
+    });
+    kb.text("🔙 Back to Transport Menu", "cat_transport");
+
+    return await ctx.reply(
+      `🎯 <b>Select Destination Bus Stop for Alighting Alarm:</b>\n\n` +
+      `Matching bus stops for "<b>${cleanQ}</b>":`,
+      { parse_mode: "HTML", reply_markup: kb }
+    );
+  }
+
+  const kb = new InlineKeyboard()
+    .text("⭐ Pick from Favorites", "alight_from_favs").row()
+    .text("📍 Use Nearby Stops", "alight_from_nearby").row()
+    .text("🔙 Back to Transport Menu", "cat_transport");
+
+  return await ctx.reply(
+    `🔔 <b>Bus Alighting Alarm & Live Trip Tracker</b>\n\n` +
+    `Never miss your bus stop again when resting, reading, or on your phone!\n\n` +
+    `<b>How to set an alarm:</b>\n` +
+    `• Type <code>/alight &lt;bus stop code&gt;</code> (e.g. <code>/alight 09048</code>)\n` +
+    `• Or type <code>/alight &lt;road or landmark&gt;</code> (e.g. <code>/alight orchard</code>)\n` +
+    `• Or pick from your saved favorites / nearby stops below:\n\n` +
+    `💡 <i>Once set, share your Telegram Live Location. The bot silently monitors your trip and triggers a loud wake-up buzzer alarm when you approach!</i>`,
+    { parse_mode: "HTML", reply_markup: kb }
+  );
+}
+
+async function promptAlightThreshold(ctx: any, stop: any) {
+  const code = stop.bus_stop_code;
+  const desc = stop.description;
+  const road = stop.road_name;
+
+  const kb = new InlineKeyboard()
+    .text("🔔 500m (~2 stops - Recommended)", `alight_set_${code}_500`).row()
+    .text("🔔 300m (~1 stop away)", `alight_set_${code}_300`).row()
+    .text("🔔 800m (~3-4 stops early warning)", `alight_set_${code}_800`).row()
+    .text("❌ Cancel", "menu_main");
+
+  const text =
+    `🎯 <b>Confirm Destination Bus Stop:</b>\n\n` +
+    `🚏 <b>Stop:</b> [<code>${code}</code>] <b>${desc}</b>\n` +
+    `🛣️ <b>Road:</b> ${road}\n\n` +
+    `<b>Select Alarm Trigger Distance:</b>\n` +
+    `How early before reaching your stop would you like the alarm to ring?`;
+
+  return await safeEditOrSend(ctx, text, kb, "HTML");
+}
+
+bot.command(["alight", "wake", "stopalarm"], async (ctx) => {
+  const query = ctx.match?.trim() || "";
+  await showAlightPrompt(ctx, query);
+});
+
+bot.command(["cancelalight", "stopalight"], async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId) {
+    await cancelAlightingAlarm(userId);
+  }
+  await ctx.reply("⏹️ <b>Alighting Alarm Cancelled.</b>\nSafe travels! You can set another alarm anytime with <code>/alight</code>.", { parse_mode: "HTML" });
+});
+
+bot.command(["alightstatus", "alarmstatus"], async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+  const active = await getActiveAlightingAlarm(userId);
+  if (!active) {
+    return ctx.reply("ℹ️ You have no active alighting alarm running right now.\n\nUse <code>/alight &lt;bus stop code&gt;</code> to set one!", { parse_mode: "HTML" });
+  }
+
+  const kb = new InlineKeyboard()
+    .text("⏹️ Cancel Alarm", "alight_cancel").row()
+    .text("🔙 Back to Menu", "menu_main");
+
+  await ctx.reply(
+    `🔔 <b>Active Bus Alighting Alarm Status</b>\n\n` +
+    `🎯 <b>Destination:</b> <b>${active.dest_name}</b> (Stop <code>${active.dest_bus_stop_code}</code>)\n` +
+    `🔔 <b>Alarm Trigger Distance:</b> <b>${active.threshold_meters}m</b>\n` +
+    (active.last_distance ? `📏 <b>Last Measured Distance:</b> ~<b>${Math.round(active.last_distance)}m</b> away\n` : "") +
+    `🕒 <b>Started:</b> <code>${new Date(active.created_at).toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore' })} SGT</code>\n\n` +
+    `📡 <i>Tracking your bus via Telegram Live Location. Ensure your live location is active!</i>`,
+    { parse_mode: "HTML", reply_markup: kb }
+  );
+});
+
 bot.on("message:location", async (ctx) => {
   const { latitude, longitude } = ctx.message.location;
+
+  // Check active alighting alarm
+  let alarmBanner = "";
+  if (ctx.from?.id) {
+    const activeAlarm = await getActiveAlightingAlarm(ctx.from.id);
+    if (activeAlarm && activeAlarm.status === "active") {
+      const dist = calculateDistanceMeters(latitude, longitude, activeAlarm.dest_lat, activeAlarm.dest_lon);
+      if (dist <= activeAlarm.threshold_meters && !activeAlarm.notified) {
+        await updateAlightingTelemetry(ctx.from.id, latitude, longitude, dist, true);
+        await ctx.reply(
+          `🚨🔔 <b>WAKE UP! ALIGHTING ALARM TRIGGERED!</b> 🔔🚨\n\n` +
+          `📍 <b>Arriving at:</b> <b>${activeAlarm.dest_name}</b> (Stop <code>${activeAlarm.dest_bus_stop_code}</code>)\n` +
+          `📏 <b>Current Distance:</b> ~<b>${Math.round(dist)}m</b> away!\n\n` +
+          `👉 <b>Press the bus bell now and prepare to alight safely!</b> 🚪🚌`,
+          { parse_mode: "HTML" }
+        ).catch(() => null);
+      } else {
+        await updateAlightingTelemetry(ctx.from.id, latitude, longitude, dist, false);
+        alarmBanner = `🔔 <b>Active Bus Alarm:</b> ~<b>${Math.round(dist)}m</b> to <b>${activeAlarm.dest_name}</b>\n\n`;
+      }
+    }
+  }
+
   let msgId: number | null = null;
   try {
     const msg = await ctx.reply("🔍 Performing 5-in-1 scan (Bus, Carparks, EV, Taxis, Bikes)...");
@@ -2241,7 +2589,7 @@ bot.on("message:location", async (ctx) => {
     console.error("Error calculating nearby bike racks", e);
   }
 
-  let text = `📍 <b>Consolidated Transport Results</b>\n\n`;
+  let text = `${alarmBanner}📍 <b>Consolidated Transport Results</b>\n\n`;
   const keyboard = new InlineKeyboard();
 
   const webAppUrl = `https://jasontan89.github.io/NewsTelegrambot/taxi-map.html?lat=${latitude}&lon=${longitude}&name=${encodeURIComponent("Your Current Location")}`;
@@ -2311,6 +2659,41 @@ bot.on("message:location", async (ctx) => {
       });
     }
   } catch (_) {}
+});
+
+bot.on("edit:location", async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  const loc = ctx.editedMessage?.location;
+  if (!loc) return;
+
+  const activeAlarm = await getActiveAlightingAlarm(userId);
+  if (!activeAlarm || activeAlarm.status !== "active") return;
+
+  const dist = calculateDistanceMeters(loc.latitude, loc.longitude, activeAlarm.dest_lat, activeAlarm.dest_lon);
+
+  if (dist <= activeAlarm.threshold_meters && !activeAlarm.notified) {
+    await updateAlightingTelemetry(userId, loc.latitude, loc.longitude, dist, true);
+
+    const text =
+      `🚨🔔 <b>WAKE UP! ALIGHTING ALARM TRIGGERED!</b> 🔔🚨\n\n` +
+      `📍 <b>Arriving at:</b> <b>${activeAlarm.dest_name}</b>\n` +
+      `🚏 <b>Bus Stop Code:</b> <code>${activeAlarm.dest_bus_stop_code}</code>\n` +
+      `📏 <b>Current Distance:</b> ~<b>${Math.round(dist)}m</b> away!\n\n` +
+      `👉 <b>Press the bus bell now and prepare to alight safely!</b> 🚪🚌`;
+
+    const kb = new InlineKeyboard()
+      .text("✅ I Have Alighted (Dismiss)", "alight_dismiss").row()
+      .url("🗺️ View Stop on Google Maps", `https://www.google.com/maps/search/?api=1&query=${activeAlarm.dest_lat},${activeAlarm.dest_lon}`);
+
+    await ctx.reply(text, {
+      parse_mode: "HTML",
+      reply_markup: kb
+    }).catch(() => null);
+  } else {
+    await updateAlightingTelemetry(userId, loc.latitude, loc.longitude, dist, false);
+  }
 });
 
 bot.callbackQuery("menu_main", async (ctx) => {
@@ -2486,6 +2869,145 @@ bot.callbackQuery("menu_traffic", async (ctx) => {
     "📷 <b>Expressway Traffic Cameras</b>\n\n" +
     "Select an expressway corridor below to view live camera snapshots:",
     getTrafficMenuKeyboard(),
+    "HTML"
+  );
+});
+
+bot.callbackQuery("menu_checkpoint", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await showCheckpointHub(ctx, true);
+});
+
+bot.callbackQuery("checkpoint_hub", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await showCheckpointHub(ctx, true);
+});
+
+bot.callbackQuery("checkpoint_refresh", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Refreshed checkpoint status!" }).catch(() => {});
+  await showCheckpointHub(ctx, true);
+});
+
+bot.callbackQuery("checkpoint_woodlands", async (ctx) => {
+  await showWoodlandsCheckpoint(ctx);
+});
+
+bot.callbackQuery("checkpoint_tuas", async (ctx) => {
+  await showTuasCheckpoint(ctx);
+});
+
+bot.callbackQuery("menu_alight", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await showAlightPrompt(ctx, "");
+});
+
+bot.callbackQuery(/^alight_pick_(\d{5})$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const code = ctx.match[1];
+  const stop = await getBusStopByCode(code);
+  if (stop) {
+    await promptAlightThreshold(ctx, stop);
+  } else {
+    await ctx.reply(`❌ Bus stop ${code} not found.`);
+  }
+});
+
+bot.callbackQuery(/^alight_set_(\d{5})_(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const code = ctx.match[1];
+  const threshold = parseInt(ctx.match[2], 10) || 500;
+  const userId = ctx.from?.id;
+  const chatId = ctx.chat?.id || userId;
+
+  const stop = await getBusStopByCode(code);
+  if (!stop || !userId) {
+    return ctx.reply("❌ Failed to activate alarm. Please try again.");
+  }
+
+  await createAlightingAlarm(userId, chatId, code, `${stop.description} (${stop.road_name})`, stop.latitude, stop.longitude, threshold);
+
+  const text =
+    `✅ <b>Bus Alighting Alarm Activated!</b>\n\n` +
+    `🎯 <b>Destination:</b> [<code>${code}</code>] <b>${stop.description}</b>\n` +
+    `🛣️ <b>Road:</b> ${stop.road_name}\n` +
+    `🔔 <b>Trigger Distance:</b> <b>${threshold}m</b> (~${threshold >= 800 ? '3-4' : threshold >= 500 ? '2' : '1'} stops away)\n\n` +
+    `📡 <b>Next Step:</b>\n` +
+    `Please tap the paperclip / plus icon 📎 in Telegram, select <b>Location</b> ➔ <b>Share Live Location</b> (choose 15 mins or 1 hour).\n\n` +
+    `<i>As your bus travels, the bot will monitor your distance and sound a loud wake-up alarm when you approach!</i>`;
+
+  const kb = new InlineKeyboard()
+    .text("⏹️ Cancel Alarm", "alight_cancel").row()
+    .text("📊 Check Alarm Status", "alight_status");
+
+  await safeEditOrSend(ctx, text, kb, "HTML");
+});
+
+bot.callbackQuery("alight_cancel", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Alarm cancelled" }).catch(() => {});
+  const userId = ctx.from?.id;
+  if (userId) {
+    await cancelAlightingAlarm(userId);
+  }
+  await safeEditOrSend(ctx, "⏹️ <b>Alighting Alarm Cancelled.</b>\nSafe travels! You can set another alarm anytime with <code>/alight</code>.", new InlineKeyboard().text("🔙 Main Menu", "menu_main"), "HTML");
+});
+
+bot.callbackQuery("alight_status", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const userId = ctx.from?.id;
+  if (!userId) return;
+  const active = await getActiveAlightingAlarm(userId);
+  if (!active) {
+    return safeEditOrSend(ctx, "ℹ️ You have no active alighting alarm running right now.\n\nUse <code>/alight &lt;bus stop code&gt;</code> to set one!", new InlineKeyboard().text("🔙 Main Menu", "menu_main"), "HTML");
+  }
+
+  const kb = new InlineKeyboard()
+    .text("⏹️ Cancel Alarm", "alight_cancel").row()
+    .text("🔙 Back to Menu", "menu_main");
+
+  await safeEditOrSend(
+    ctx,
+    `🔔 <b>Active Bus Alighting Alarm Status</b>\n\n` +
+    `🎯 <b>Destination:</b> <b>${active.dest_name}</b> (Stop <code>${active.dest_bus_stop_code}</code>)\n` +
+    `🔔 <b>Alarm Trigger Distance:</b> <b>${active.threshold_meters}m</b>\n` +
+    (active.last_distance ? `📏 <b>Last Measured Distance:</b> ~<b>${Math.round(active.last_distance)}m</b> away\n` : "") +
+    `🕒 <b>Started:</b> <code>${new Date(active.created_at).toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore' })} SGT</code>\n\n` +
+    `📡 <i>Tracking your bus via Telegram Live Location. Ensure your live location is active!</i>`,
+    kb,
+    "HTML"
+  );
+});
+
+bot.callbackQuery("alight_dismiss", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Alarm dismissed. Welcome!" }).catch(() => {});
+  await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text("🔙 Back to Main Menu", "menu_main") }).catch(() => {});
+});
+
+bot.callbackQuery("alight_from_favs", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const userId = ctx.from?.id;
+  if (!userId) return;
+  const favs = await getFavorites(userId);
+  const busFavs = (favs || []).filter((f: any) => f.type === "bus_stop");
+  if (busFavs.length === 0) {
+    return safeEditOrSend(ctx, "⭐ You have no favorite bus stops saved yet.\n\nUse <code>/alight &lt;bus stop code&gt;</code> or save favorite stops with the ⭐ button!", new InlineKeyboard().text("🔙 Back", "menu_alight"), "HTML");
+  }
+
+  const kb = new InlineKeyboard();
+  busFavs.forEach((f: any) => {
+    kb.text(`🚏 [${f.value}] ${f.label.substring(0, 20)}`, `alight_pick_${f.value}`).row();
+  });
+  kb.text("🔙 Back", "menu_alight");
+
+  await safeEditOrSend(ctx, "⭐ <b>Select Destination from Favorites:</b>", kb, "HTML");
+});
+
+bot.callbackQuery("alight_from_nearby", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await safeEditOrSend(
+    ctx,
+    "📍 <b>Set Alarm using Nearby Bus Stops:</b>\n\n" +
+    "Please send your 📎 <b>Location</b> to view nearby bus stops and set your alighting destination!",
+    new InlineKeyboard().text("🔙 Back", "menu_alight"),
     "HTML"
   );
 });
@@ -2995,10 +3517,13 @@ Deno.serve(async (req) => {
           const commands = [
             { command: "goto", description: "🗺️ Plan direct & transfer bus journeys" },
             { command: "bus", description: "🚌 Live bus arrival timings & search" },
+            { command: "alight", description: "🔔 Set bus alighting alarm with live location" },
+            { command: "cancelalight", description: "⏹️ Stop and cancel active alighting alarm" },
             { command: "route", description: "🚍 Bus route stops & operating hours" },
             { command: "mrt", description: "🚆 Station platform crowd levels" },
             { command: "disruptions", description: "⚠️ Train breakdown status & bridging" },
             { command: "mrtalerts", description: "🔔 Manage MRT disruption push alerts" },
+            { command: "checkpoint", description: "🇸🇬🇲🇾 Causeway & Tuas live cameras & road advisory" },
             { command: "erp", description: "💳 Live ERP gantry rates, schedules & vehicle rates" },
             { command: "ev", description: "⚡ Live EV chargers, plug speeds & availability" },
             { command: "taxi", description: "🚕 Vacant taxi counts & taxi stands" },

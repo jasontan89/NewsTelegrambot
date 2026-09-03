@@ -196,3 +196,122 @@ export async function updateMRTAlertState(status: number, affected: any, message
       updated_at: new Date().toISOString()
     });
 }
+
+// ==========================================
+// Bus Stop & Alighting Alarm Database Helpers
+// ==========================================
+
+export async function getBusStopByCode(code: string) {
+  const cleanCode = (code || "").trim();
+  const { data, error } = await supabase
+    .from('lta_bus_stops')
+    .select('bus_stop_code, road_name, description, latitude, longitude')
+    .eq('bus_stop_code', cleanCode)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function searchBusStops(query: string, limit: number = 5) {
+  const cleanQ = (query || "").trim();
+  if (!cleanQ) return [];
+
+  const { data, error } = await supabase
+    .from('lta_bus_stops')
+    .select('bus_stop_code, road_name, description, latitude, longitude')
+    .or(`description.ilike.%${cleanQ}%,road_name.ilike.%${cleanQ}%,bus_stop_code.eq.${cleanQ}`)
+    .limit(limit);
+
+  if (error) {
+    console.error("Error searching bus stops:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createAlightingAlarm(
+  userId: number,
+  chatId: number,
+  destStopCode: string,
+  destName: string,
+  destLat: number,
+  destLon: number,
+  thresholdMeters: number = 500
+) {
+  const { data, error } = await supabase
+    .from('alighting_alarms')
+    .upsert({
+      user_id: userId,
+      chat_id: chatId,
+      dest_bus_stop_code: destStopCode,
+      dest_name: destName,
+      dest_lat: destLat,
+      dest_lon: destLon,
+      threshold_meters: thresholdMeters,
+      notified: false,
+      status: 'active',
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error("Error creating alighting alarm:", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function getActiveAlightingAlarm(userId: number) {
+  const { data, error } = await supabase
+    .from('alighting_alarms')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function updateAlightingTelemetry(
+  userId: number,
+  lastLat: number,
+  lastLon: number,
+  lastDistance: number,
+  markTriggered: boolean = false
+) {
+  const updatePayload: any = {
+    last_lat: lastLat,
+    last_lon: lastLon,
+    last_distance: lastDistance,
+    updated_at: new Date().toISOString()
+  };
+
+  if (markTriggered) {
+    updatePayload.status = 'triggered';
+    updatePayload.notified = true;
+  }
+
+  const { data, error } = await supabase
+    .from('alighting_alarms')
+    .update(updatePayload)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error("Error updating alighting telemetry:", error);
+  }
+  return data;
+}
+
+export async function cancelAlightingAlarm(userId: number) {
+  const { data, error } = await supabase
+    .from('alighting_alarms')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error("Error cancelling alighting alarm:", error);
+  }
+  return data;
+}
+
