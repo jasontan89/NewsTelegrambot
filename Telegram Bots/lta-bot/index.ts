@@ -210,7 +210,9 @@ async function safeEditOrSend(ctx: any, text: string, keyboard?: InlineKeyboard,
 }
 
 function getMainMenuKeyboard() {
+  const superMapUrl = "https://jasontan89.github.io/NewsTelegrambot/super-map.html";
   return new InlineKeyboard()
+    .webApp("🗺️ All-in-One Transit Super-Map", superMapUrl).row()
     .text("🚌 Public Transport", "cat_transport")
     .text("🚗 Drivers & Roads", "cat_driving").row()
     .text("📍 Explore & Nearby", "cat_explore")
@@ -308,6 +310,7 @@ function getHelpText(): string {
     `• <code>/disruptions</code> — Network health status & free shuttle/bus bridging advice\n` +
     `• <code>/mrtalerts</code> — Instant push notification subscriptions for breakdown alerts\n\n` +
     `🚗 <b>Driving, Carparks, EV & Traffic</b>\n` +
+    `• <code>/supermap</code> or <code>/map</code> — All-in-one interactive transit super-map (ERP, Cams, Incidents, Taxis, EV)\n` +
     `• <code>/checkpoint</code> — 🇸🇬🇲🇾 Real-time Woodlands Causeway & Tuas Second Link camera radar\n` +
     `• <code>/erp CTE</code> or <code>/erp Orchard</code> — Real-time active rates, vehicle multipliers & operating hours\n` +
     `• <code>/ev Tampines Mall</code> or <code>/ev 529510</code> — Live EV chargers, plug speeds (DC Fast/AC), rates & availability\n` +
@@ -2474,6 +2477,25 @@ bot.command(["alightstatus", "alarmstatus"], async (ctx) => {
   );
 });
 
+bot.command(["supermap", "map", "transitmap"], async (ctx) => {
+  const superMapUrl = "https://jasontan89.github.io/NewsTelegrambot/super-map.html";
+  const keyboard = new InlineKeyboard()
+    .webApp("🗺️ Launch All-in-One Super-Map", superMapUrl).row()
+    .text("🔙 Back to Main Menu", "menu_main");
+
+  await ctx.reply(
+    "🗺️ <b>All-in-One Singapore Transit Super-Map</b>\n\n" +
+    "Explore Singapore's unified live transit radar in an interactive dark map:\n\n" +
+    "• 💳 <b>ERP Gantries</b>: Live pricing, active status & vehicle rates\n" +
+    "• 📷 <b>Traffic Cameras</b>: Live expressway & checkpoint snapshots in popups\n" +
+    "• ⚠️ <b>Live Incidents</b>: Real-time accidents, breakdowns & road closures\n" +
+    "• 🚕 <b>Taxis & Stands</b>: Vacant taxi radar & barrier-free taxi stands\n" +
+    "• ⚡ <b>EV Charging</b>: 23 major high-speed EV charging hubs\n\n" +
+    "📍 <i>Tap below to launch the interactive map with your live GPS location!</i>",
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
+});
+
 bot.on("message:location", async (ctx) => {
   const { latitude, longitude } = ctx.message.location;
 
@@ -3511,10 +3533,115 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Handle All-in-One Super-Map Consolidated Data API
+      if (url.pathname.endsWith("/api/super-map-data")) {
+        try {
+          const lat = parseFloat(url.searchParams.get("lat") || "1.3521");
+          const lon = parseFloat(url.searchParams.get("lon") || "103.8198");
+
+          // 1. SGT Time & ERP Gantries
+          const sgtMeta = getSGTHourAndMinute();
+          const gantriesWithRates = ERP_GANTRIES.map(g => {
+            const carRate = getCurrentERPRate(g, "car");
+            const motoRate = getCurrentERPRate(g, "moto");
+            const hgvRate = getCurrentERPRate(g, "hgv");
+            return {
+              ...g,
+              rates: {
+                car: carRate,
+                moto: motoRate,
+                hgv: hgvRate
+              }
+            };
+          });
+
+          // 2. Traffic Cameras
+          let cameras: any[] = [];
+          try {
+            const camData = await fetchTrafficImages();
+            const rawCams = camData?.value || [];
+            cameras = rawCams.map((c: any) => {
+              const meta = getCameraMeta(c.CameraID, c.Latitude, c.Longitude);
+              return {
+                id: String(c.CameraID),
+                name: meta.name,
+                corridor: meta.exp,
+                lat: parseFloat(c.Latitude),
+                lon: parseFloat(c.Longitude),
+                image: c.ImageLink
+              };
+            });
+          } catch (camErr) {
+            console.error("Super-Map fetch cameras error:", camErr);
+          }
+
+          // 3. Traffic Incidents
+          let incidents: any[] = [];
+          try {
+            const incData = await fetchTrafficIncidents();
+            incidents = (incData?.value || []).map((i: any) => ({
+              type: i.Type,
+              icon: getIncidentIcon(i.Type),
+              message: i.Message,
+              lat: parseFloat(i.Latitude),
+              lon: parseFloat(i.Longitude)
+            }));
+          } catch (incErr) {
+            console.error("Super-Map fetch incidents error:", incErr);
+          }
+
+          // 4. EV Charging Hubs
+          const evHubs = Object.values(EV_HUBS).map(h => ({
+            name: h.name,
+            postal: h.postal,
+            area: h.area,
+            lat: h.lat,
+            lon: h.lon
+          }));
+
+          // 5. Vacant Taxis Count & Stands
+          let taxiCount = 0;
+          let nearbyStands: any[] = [];
+          try {
+            const taxiData = await fetchTaxiAvailability();
+            const rawTaxis = taxiData?.value?.[0]?.TaxiPositions || [];
+            taxiCount = rawTaxis.length;
+            nearbyStands = await getNearbyTaxiStands(lat, lon, 20);
+          } catch (taxiErr) {
+            console.error("Super-Map fetch taxis error:", taxiErr);
+          }
+
+          return new Response(JSON.stringify({
+            sgt: sgtMeta,
+            erp: gantriesWithRates,
+            cameras: cameras,
+            incidents: incidents,
+            ev_hubs: evHubs,
+            taxi_count: taxiCount,
+            taxi_stands: nearbyStands
+          }), {
+            headers: {
+              "content-type": "application/json",
+              "access-control-allow-origin": "*"
+            }
+          });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: {
+              "content-type": "application/json",
+              "access-control-allow-origin": "*"
+            }
+          });
+        }
+      }
+
       // Handle Registering Native Telegram Slash Commands
       if (url.pathname.endsWith("/api/setup-commands")) {
         try {
           const commands = [
+            { command: "supermap", description: "🗺️ All-in-one live transit radar map (ERP, Cams, Incidents, Taxis, EV)" },
+            { command: "map", description: "🗺️ Interactive Singapore transit super-map" },
             { command: "goto", description: "🗺️ Plan direct & transfer bus journeys" },
             { command: "bus", description: "🚌 Live bus arrival timings & search" },
             { command: "alight", description: "🔔 Set bus alighting alarm with live location" },
