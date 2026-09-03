@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SG Transit Super-Map &#127480;&#127468;</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #0f131a; color: #fff; }
+    #map { width: 100%; height: 100%; z-index: 1; }
+
+    /* Clean dark theme map tiles with NO watermark */
+    .leaflet-tile {
+      filter: brightness(0.82) invert(1) contrast(1.15) hue-rotate(200deg) saturate(0.35) !important;
+    }
+
+    /* Top Floating Controls Container */
+    .top-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .top-container > * {
+      pointer-events: auto;
+    }
+
+    .header-card {
+      background: rgba(18, 24, 36, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    }
+
+    .header-left h1 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-left p {
+      font-size: 10px;
+      color: #9aa0a6;
+      margin-top: 1px;
+    }
+
+    .live-badge {
+      background: rgba(35, 134, 54, 0.25);
+      border: 1px solid rgba(46, 160, 67, 0.5);
+      color: #3fb950;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3fb950;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(63, 185, 80, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+    }
+
+    /* Layer Filter Pills */
+    .filter-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .filter-scroll::-webkit-scrollbar { display: none; }
+
+    .pill-btn {
+      background: rgba(26, 33, 48, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #c9d1d9;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 16px;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: all 0.15s ease;
+    }
+
+    .pill-btn.active {
+      background: #388bfd;
+      color: #fff;
+      border-color: #58a6ff;
+    }
+
+    .pill-btn.erp-pill.active { background: #d29922; border-color: #e3b341; }
+    .pill-btn.cam-pill.active { background: #8957e5; border-color: #a371f7; }
+    .pill-btn.inc-pill.active { background: #da3633; border-color: #f85149; }
+    .pill-btn.taxi-pill.active { background: #238636; border-color: #2ea043; }
+    .pill-btn.ev-pill.active { background: #1f6feb; border-color: #388bfd; }
+
+    /* Sub-bar for ERP Vehicle Multiplier */
+    .vehicle-bar {
+      display: none;
+      background: rgba(18, 24, 36, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px 6px;
+      gap: 4px;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .vehicle-bar.visible { display: flex; }
+
+    .veh-btn {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .veh-btn.active {
+      background: rgba(210, 153, 34, 0.25);
+      color: #f0883e;
+      border: 1px solid rgba(210, 153, 34, 0.4);
+    }
+
+    /* Floating Action Buttons */
+    .fab-container {
+      position: absolute;
+      right: 12px;
+      bottom: 60px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fab {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(22, 27, 34, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    .fab:active { transform: scale(0.92); }
+
+    /* Bottom Info Bar */
+    .bottom-bar {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(18, 24, 36, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #8b949e;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+    }
+    .stat-item span { color: #fff; font-weight: 700; }
+
+    /* Map Markers */
+    .erp-pin {
+      padding: 4px 6px;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 10px;
+      border: 1.5px solid #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+      white-space: nowrap;
+      text-align: center;
+    }
+    .erp-pin.charging { background: #da3633; }
+    .erp-pin.free { background: #238636; }
+
+    .cam-pin {
+      background: #8957e5;
+      border: 1.5px solid #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+
+    .inc-pin {
+      background: #d29922;
+      border: 1.5px solid #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+    .inc-pin.accident { background: #da3633; }
+
+    .ev-pin {
+      background: #1f6feb;
+      border: 1.5px solid #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+
+    .taxi-pin {
+      background: #238636;
+      border: 1.5px solid #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+
+    /* User Location Marker */
+    .user-pin-wrapper {
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+    .user-pin {
+      width: 14px;
+      height: 14px;
+      background: #58a6ff;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #58a6ff;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+    }
+    .user-pin-pulse {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(88, 166, 255, 0.4);
+      animation: userPulse 2s infinite;
+    }
+    @keyframes userPulse {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+
+    /* Popups */
+    .leaflet-popup-content-wrapper {
+      background: #181c24 !important;
+      color: #fff !important;
+      border-radius: 12px !important;
+      padding: 4px !important;
+      border: 1px solid rgba(255,255,255,0.15) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+    }
+    .leaflet-popup-tip { background: #181c24 !important; }
+    .leaflet-popup-content { margin: 10px 12px !important; font-size: 12px !important; line-height: 1.4 !important; }
+
+    .popup-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .popup-sub { font-size: 11px; color: #8b949e; margin-bottom: 8px; }
+    .popup-img { width: 100%; border-radius: 8px; margin: 6px 0; border: 1px solid rgba(255,255,255,0.1); }
+    .popup-btn {
+      display: inline-block;
+      margin-top: 6px;
+      background: #388bfd;
+      color: #fff;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 6px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-container">
+    <div class="header-card">
+      <div class="header-left">
+        <h1>&#127480;&#127468; SG Transit Super-Map</h1>
+        <p id="sgt-clock">--:-- SGT &#8226; Live Transit Radar</p>
+      </div>
+      <div class="live-badge">
+        <div class="pulse-dot"></div>
+        LIVE RADAR
+      </div>
+    </div>
+
+    <!-- Layer Switcher Pills -->
+    <div class="filter-scroll">
+      <button class="pill-btn active" id="pill-all" onclick="toggleAllLayers()">&#127760; All Layers</button>
+      <button class="pill-btn erp-pill active" id="pill-erp" onclick="toggleLayer('erp')">&#128179; ERP Gantries</button>
+      <button class="pill-btn cam-pill active" id="pill-cam" onclick="toggleLayer('cam')">&#128247; Cameras</button>
+      <button class="pill-btn inc-pill active" id="pill-inc" onclick="toggleLayer('inc')">&#9888;&#65039; Incidents</button>
+      <button class="pill-btn taxi-pill active" id="pill-taxi" onclick="toggleLayer('taxi')">&#128662; Taxis</button>
+      <button class="pill-btn ev-pill active" id="pill-ev" onclick="toggleLayer('ev')">&#9889; EV Hubs</button>
+    </div>
+
+    <!-- ERP Vehicle Switcher (visible when ERP layer active) -->
+    <div class="vehicle-bar visible" id="vehicle-bar">
+      <button class="veh-btn active" id="veh-car" onclick="setVehicle('car')">&#128663; Cars (1.0x)</button>
+      <button class="veh-btn" id="veh-moto" onclick="setVehicle('moto')">&#127949;&#65039; Moto (0.5x)</button>
+      <button class="veh-btn" id="veh-hgv" onclick="setVehicle('hgv')">&#128667; Heavy (1.5x)</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <div class="fab" onclick="locateUser()" title="Locate Me">&#127919;</div>
+    <div class="fab" onclick="fetchSuperMapData()" title="Refresh All">&#128260;</div>
+  </div>
+
+  <!-- Bottom Info Bar -->
+  <div class="bottom-bar">
+    <div class="stat-item">&#128179; <span id="stat-erp">30</span> Gantries</div>
+    <div class="stat-item">&#128247; <span id="stat-cams">8</span> Cams</div>
+    <div class="stat-item">&#9888;&#65039; <span id="stat-inc">0</span> Incidents</div>
+    <div class="stat-item">&#9889; <span id="stat-ev">23</span> EV Hubs</div>
+  </div>
+
+  <script>
+    // Initialize Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      try {
+        window.Telegram.WebApp.setHeaderColor('#0f131a');
+        window.Telegram.WebApp.setBackgroundColor('#0f131a');
+      } catch (e) {}
+    }
+
+    // Default Singapore Center
+    const DEFAULT_LAT = 1.3521;
+    const DEFAULT_LON = 103.8198;
+    const map = L.map('map', { zoomControl: false }).setView([DEFAULT_LAT, DEFAULT_LON], 12);
+
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+    // Dark Leaflet Tiles (Zero Watermark)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // Layer Groups
+    const erpLayerGroup = L.layerGroup().addTo(map);
+    const camLayerGroup = L.layerGroup().addTo(map);
+    const incLayerGroup = L.layerGroup().addTo(map);
+    const taxiLayerGroup = L.layerGroup().addTo(map);
+    const evLayerGroup = L.layerGroup().addTo(map);
+    let userMarker = null;
+
+    let activeLayers = {
+      erp: true,
+      cam: true,
+      inc: true,
+      taxi: true,
+      ev: true
+    };
+
+    let currentVehicle = 'car';
+    let superMapData = null;
+
+    // SGT Clock
+    function updateClock() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('sgt-clock').innerText = timeStr + ' SGT &#8226; Live Radar';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Toggle Specific Layer
+    function toggleLayer(layerName) {
+      activeLayers[layerName] = !activeLayers[layerName];
+      const btn = document.getElementById('pill-' + layerName);
+      if (activeLayers[layerName]) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+
+      // Check ERP vehicle bar visibility
+      const vbar = document.getElementById('vehicle-bar');
+      if (activeLayers.erp) {
+        vbar.classList.add('visible');
+      } else {
+        vbar.classList.remove('visible');
+      }
+
+      renderLayers();
+    }
+
+    // Toggle All Layers
+    function toggleAllLayers() {
+      const allActive = Object.values(activeLayers).every(v => v);
+      const newState = !allActive;
+      for (const k in activeLayers) {
+        activeLayers[k] = newState;
+        const btn = document.getElementById('pill-' + k);
+        if (newState) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
+      const allBtn = document.getElementById('pill-all');
+      if (newState) allBtn.classList.add('active');
+      else allBtn.classList.remove('active');
+
+      const vbar = document.getElementById('vehicle-bar');
+      if (newState) vbar.classList.add('visible');
+      else vbar.classList.remove('visible');
+
+      renderLayers();
+    }
+
+    // Set ERP Vehicle
+    function setVehicle(veh) {
+      currentVehicle = veh;
+      ['car', 'moto', 'hgv'].forEach(v => {
+        const b = document.getElementById('veh-' + v);
+        if (v === veh) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      renderERPLayer();
+    }
+
+    // Fetch Super-Map Consolidated Data
+    async function fetchSuperMapData() {
+      const apiBase = "https://blcsjvifiytbznwesmyx.supabase.co/functions/v1/lta_bot";
+      try {
+        const res = await fetch(apiBase + "/api/super-map-data");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        superMapData = await res.json();
+
+        // Update stats
+        if (superMapData.erp) document.getElementById('stat-erp').innerText = superMapData.erp.length;
+        if (superMapData.cameras) document.getElementById('stat-cams').innerText = superMapData.cameras.length;
+        if (superMapData.incidents) document.getElementById('stat-inc').innerText = superMapData.incidents.length;
+        if (superMapData.ev_hubs) document.getElementById('stat-ev').innerText = superMapData.ev_hubs.length;
+
+        renderLayers();
+      } catch (e) {
+        console.error("Super-Map fetch error:", e);
+      }
+    }
+
+    function renderLayers() {
+      if (!superMapData) return;
+
+      if (activeLayers.erp) renderERPLayer();
+      else erpLayerGroup.clearLayers();
+
+      if (activeLayers.cam) renderCamLayer();
+      else camLayerGroup.clearLayers();
+
+      if (activeLayers.inc) renderIncLayer();
+      else incLayerGroup.clearLayers();
+
+      if (activeLayers.taxi) renderTaxiLayer();
+      else taxiLayerGroup.clearLayers();
+
+      if (activeLayers.ev) renderEVLayer();
+      else evLayerGroup.clearLayers();
+    }
+
+    function renderERPLayer() {
+      erpLayerGroup.clearLayers();
+      if (!superMapData || !superMapData.erp) return;
+
+      superMapData.erp.forEach(g => {
+        const rateVal = g.rates ? g.rates[currentVehicle] : 0;
+        const isCharging = rateVal > 0;
+        const rateText = isCharging ? ('$' + rateVal.toFixed(2)) : 'FREE';
+
+        const pinClass = isCharging ? 'erp-pin charging' : 'erp-pin free';
+        const iconHtml = '<div class="' + pinClass + '">' + rateText + '</div>';
+        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [46, 22], iconAnchor: [23, 11] });
+
+        const marker = L.marker([g.lat, g.lon], { icon: icon });
+
+        const popHtml = 
+          '<div class="popup-title">&#128179; ' + g.name + '</div>' +
+          '<div class="popup-sub">&#128739;&#65039; ' + g.corridor + ' &#8226; ' + g.direction + '</div>' +
+          '<div><b>Current Rate:</b> <span style="color:' + (isCharging ? '#f85149' : '#3fb950') + '; font-weight:700;">' + rateText + '</span></div>' +
+          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + g.lat + ',' + g.lon + '">&#128663; Navigate</a>';
+
+        marker.bindPopup(popHtml);
+        erpLayerGroup.addLayer(marker);
+      });
+    }
+
+    function renderCamLayer() {
+      camLayerGroup.clearLayers();
+      if (!superMapData || !superMapData.cameras) return;
+
+      superMapData.cameras.forEach(c => {
+        const iconHtml = '<div class="cam-pin">&#128247;</div>';
+        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+
+        const marker = L.marker([c.lat, c.lon], { icon: icon });
+
+        const popHtml = 
+          '<div class="popup-title">&#128247; ' + c.name + '</div>' +
+          '<div class="popup-sub">Camera ID: ' + c.id + ' &#8226; ' + (c.corridor ? c.corridor.toUpperCase() : 'Expressway') + '</div>' +
+          '<img class="popup-img" src="' + c.image + '" alt="Live Camera" />' +
+          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + c.lat + ',' + c.lon + '">&#128506;&#65039; Google Maps</a>';
+
+        marker.bindPopup(popHtml);
+        camLayerGroup.addLayer(marker);
+      });
+    }
+
+    function renderIncLayer() {
+      incLayerGroup.clearLayers();
+      if (!superMapData || !superMapData.incidents) return;
+
+      superMapData.incidents.forEach(inc => {
+        const isAcc = (inc.type || '').toLowerCase().includes('accident');
+        const iconClass = isAcc ? 'inc-pin accident' : 'inc-pin';
+        const iconHtml = '<div class="' + iconClass + '">' + (inc.icon || '&#9888;&#65039;') + '</div>';
+        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+
+        const marker = L.marker([inc.lat, inc.lon], { icon: icon });
+
+        const popHtml = 
+          '<div class="popup-title">' + (inc.icon || '&#9888;&#65039;') + ' ' + (inc.type || 'Incident') + '</div>' +
+          '<div style="margin: 6px 0; font-size:11px; color:#c9d1d9;">' + inc.message + '</div>' +
+          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + inc.lat + ',' + inc.lon + '">&#128506;&#65039; View on Maps</a>';
+
+        marker.bindPopup(popHtml);
+        incLayerGroup.addLayer(marker);
+      });
+    }
+
+    function renderTaxiLayer() {
+      taxiLayerGroup.clearLayers();
+      if (!superMapData || !superMapData.taxi_stands) return;
+
+      superMapData.taxi_stands.forEach(t => {
+        const iconHtml = '<div class="taxi-pin">&#128662;</div>';
+        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
+
+        const marker = L.marker([t.latitude, t.longitude], { icon: icon });
+
+        const popHtml = 
+          '<div class="popup-title">&#128662; ' + t.taxi_code + ' - ' + t.name + '</div>' +
+          '<div class="popup-sub">&#128739;&#65039; ' + (t.road_name || 'Official Stand') + '</div>' +
+          '<div><b>Capacity:</b> ' + (t.capacity || 'Standard') + ' taxis</div>' +
+          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + t.latitude + ',' + t.longitude + '">&#128694; Walk to Stand</a>';
+
+        marker.bindPopup(popHtml);
+        taxiLayerGroup.addLayer(marker);
+      });
+    }
+
+    function renderEVLayer() {
+      evLayerGroup.clearLayers();
+      if (!superMapData || !superMapData.ev_hubs) return;
+
+      superMapData.ev_hubs.forEach(ev => {
+        const iconHtml = '<div class="ev-pin">&#9889;</div>';
+        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
+
+        const marker = L.marker([ev.lat, ev.lon], { icon: icon });
+
+        const popHtml = 
+          '<div class="popup-title">&#9889; ' + ev.name + '</div>' +
+          '<div class="popup-sub">&#128205; ' + ev.area + ' &#8226; Postal ' + ev.postal + '</div>' +
+          '<div>High-speed public EV charging hub</div>' +
+          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + ev.lat + ',' + ev.lon + '">&#128663; Drive to Charger</a>';
+
+        marker.bindPopup(popHtml);
+        evLayerGroup.addLayer(marker);
+      });
+    }
+
+    // Locate User GPS
+    function locateUser() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+
+          if (userMarker) map.removeLayer(userMarker);
+
+          const iconHtml = '<div class="user-pin-wrapper"><div class="user-pin-pulse"></div><div class="user-pin"></div></div>';
+          const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+
+          userMarker = L.marker([lat, lon], { icon: icon }).addTo(map);
+          userMarker.bindPopup('<b>&#128205; You are here</b><br>Live GPS Centered').openPopup();
+
+          map.flyTo([lat, lon], 14, { duration: 1.2 });
+        },
+        (err) => {
+          console.warn("Geolocation failed:", err);
+          alert("Unable to retrieve your current location. Please allow location permissions in Telegram.");
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+
+    // Auto locate if URL params have lat & lon
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('lat') && urlParams.has('lon')) {
+      const pLat = parseFloat(urlParams.get('lat'));
+      const pLon = parseFloat(urlParams.get('lon'));
+      map.setView([pLat, pLon], 14);
+
+      const iconHtml = '<div class="user-pin-wrapper"><div class="user-pin-pulse"></div><div class="user-pin"></div></div>';
+      const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+      userMarker = L.marker([pLat, pLon], { icon: icon }).addTo(map);
+      userMarker.bindPopup('<b>&#128205; Your Selected Location</b>').openPopup();
+    }
+
+    // Initial Load
+    fetchSuperMapData();
+  </script>
+</body>
+</html>
