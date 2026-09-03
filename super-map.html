@@ -268,17 +268,30 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
 
-    .taxi-pin {
-      background: #238636;
+    .stand-pin {
+      background: #0969da;
       border: 1.5px solid #fff;
       width: 26px;
       height: 26px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+
+    .taxi-pin {
+      background: #e3b341;
+      border: 1.5px solid #fff;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       display: flex;
       justify-content: center;
       align-items: center;
       font-size: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
     }
 
     /* User Location Marker */
@@ -602,23 +615,46 @@
 
     function renderTaxiLayer() {
       taxiLayerGroup.clearLayers();
-      if (!superMapData || !superMapData.taxi_stands) return;
+      if (!superMapData) return;
 
-      superMapData.taxi_stands.forEach(t => {
-        const iconHtml = '<div class="taxi-pin">&#128662;</div>';
-        const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
+      // 1. Render all official taxi stands
+      if (superMapData.taxi_stands && Array.isArray(superMapData.taxi_stands)) {
+        superMapData.taxi_stands.forEach(t => {
+          const iconHtml = '<div class="stand-pin">&#128662;</div>';
+          const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
+          const marker = L.marker([t.latitude, t.longitude], { icon: icon });
 
-        const marker = L.marker([t.latitude, t.longitude], { icon: icon });
+          const popHtml = 
+            '<div class="popup-title">&#128662; Stand [' + t.taxi_code + ']</div>' +
+            '<div style="font-weight:600; color:#fff; margin-bottom:2px;">' + t.name + '</div>' +
+            '<div class="popup-sub">&#128739;&#65039; ' + (t.type || 'Official Stand') + ' &#8226; ' + (t.ownership || 'LTA') + '</div>' +
+            '<div><b>Barrier-Free:</b> ' + (t.bfa === 'Yes' ? '&#9855; Yes' : 'No') + '</div>' +
+            '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + t.latitude + ',' + t.longitude + '">&#128694; Walk to Stand</a>';
 
-        const popHtml = 
-          '<div class="popup-title">&#128662; ' + t.taxi_code + ' - ' + t.name + '</div>' +
-          '<div class="popup-sub">&#128739;&#65039; ' + (t.road_name || 'Official Stand') + '</div>' +
-          '<div><b>Capacity:</b> ' + (t.capacity || 'Standard') + ' taxis</div>' +
-          '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' + t.latitude + ',' + t.longitude + '">&#128694; Walk to Stand</a>';
+          marker.bindPopup(popHtml);
+          taxiLayerGroup.addLayer(marker);
+        });
+      }
 
-        marker.bindPopup(popHtml);
-        taxiLayerGroup.addLayer(marker);
-      });
+      // 2. Render live vacant taxis
+      if (superMapData.taxis && Array.isArray(superMapData.taxis)) {
+        superMapData.taxis.forEach(pt => {
+          const lat = pt[0];
+          const lon = pt[1];
+          const iconHtml = '<div class="taxi-pin">&#128661;</div>';
+          const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [22, 22], iconAnchor: [11, 11] });
+          const marker = L.marker([lat, lon], { icon: icon });
+
+          const popHtml = 
+            '<div class="popup-title">&#128661; Vacant Taxi (Live)</div>' +
+            '<div class="popup-sub">&#128205; GPS: ' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '</div>' +
+            '<div style="color:#3fb950; font-weight:600; margin-bottom:4px;">&#9679; Available Now (LTA Live Stream)</div>' +
+            '<a class="popup-btn" target="_blank" href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon + '">&#128506;&#65039; View in Maps</a>';
+
+          marker.bindPopup(popHtml);
+          taxiLayerGroup.addLayer(marker);
+        });
+      }
     }
 
     function renderEVLayer() {

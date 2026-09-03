@@ -202,7 +202,7 @@
 
   <div class="top-header">
     <div class="header-title">
-      <h1>&#128661; SG Taxi Radar</h1>
+      <h1>🚕 SG Taxi Radar</h1>
       <p id="loc-name">Loading location...</p>
     </div>
     <div id="taxi-badge" class="badge">Scanning...</div>
@@ -211,14 +211,14 @@
   <div id="map"></div>
 
   <div class="legend-bar">
-    <div class="legend-item"><span>&#128309;</span> Searched Location</div>
-    <div class="legend-item"><span>&#128661;</span> Vacant Taxi (Live)</div>
-    <div class="legend-item"><span>&#128662;</span> Official Taxi Stand</div>
+    <div class="legend-item"><span>🔵</span> Searched Location</div>
+    <div class="legend-item"><span>🚕</span> Vacant Taxi (Live)</div>
+    <div class="legend-item"><span>🚖</span> Official Taxi Stand</div>
   </div>
 
   <div class="action-controls">
-    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">&#128260;</button>
-    <button class="action-btn" id="btn-locate" title="Center My Location">&#127919;</button>
+    <button class="action-btn" id="btn-refresh" title="Refresh Taxis">🔄</button>
+    <button class="action-btn" id="btn-locate" title="Center My Location">🎯</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -241,7 +241,7 @@
       zoomControl: false
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19
@@ -325,23 +325,22 @@
           if (dist <= 500) count500m++;
           if (dist <= 1000) count1km++;
 
-          if (dist <= 2500) {
-            const taxiIcon = L.divIcon({
-              className: 'custom-div-icon',
-              html: '<div class="taxi-marker">&#128661;</div>',
-              iconSize: [32, 32],
-              iconAnchor: [16, 16]
-            });
+          const taxiIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div class="taxi-marker">🚕</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
 
-            const m = L.marker([t.Latitude, t.Longitude], { icon: taxiIcon }).addTo(taxiLayer);
-            m.bindPopup(`
-              <div class="popup-content">
-                <div class="popup-title">&#128661; Vacant Taxi</div>
-                <div class="popup-sub">📍 ~${Math.round(dist)}m from center</div>
-                <div style="font-size: 11px; color: #3fb950; font-weight: 600;">Available Now (LTA Live Stream)</div>
-              </div>
-            `);
-          }
+          const m = L.marker([t.Latitude, t.Longitude], { icon: taxiIcon }).addTo(taxiLayer);
+          m.bindPopup(`
+            <div class="popup-content">
+              <div class="popup-title">🚕 Vacant Taxi</div>
+              <div class="popup-sub">📍 ~${Math.round(dist)}m from center</div>
+              <div style="font-size: 11px; color: #3fb950; font-weight: 600;">Available Now (LTA Live Stream)</div>
+              <a href="https://www.google.com/maps/search/?api=1&query=${t.Latitude},${t.Longitude}" target="_blank" class="btn-nav">🗺️ View in Google Maps</a>
+            </div>
+          `);
         });
 
         const stands = data.stands || [];
@@ -349,26 +348,27 @@
           const dist = Math.round(calculateDistance(lat, lon, s.latitude, s.longitude));
           const standIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: '<div class="stand-marker">&#128662;</div>',
+            html: '<div class="stand-marker">🚖</div>',
             iconSize: [30, 30],
             iconAnchor: [15, 15]
           });
 
           const m = L.marker([s.latitude, s.longitude], { icon: standIcon }).addTo(standLayer);
-          const bfaBadge = s.bfa === 'Yes' ? '♿ Barrier-Free' : 'Standard';
+          const bfaBadge = (s.barrier_free || s.bfa === 'Yes') ? '♿ Barrier-Free' : 'Standard';
           const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}`;
           
           m.bindPopup(`
             <div class="popup-content">
-              <div class="popup-title">&#128662; Taxi Stand [${s.taxi_code}]</div>
+              <div class="popup-title">🚖 Taxi Stand [${s.taxi_code}]</div>
               <div style="font-weight: 600; color: #fff; margin-bottom: 2px;">${s.name}</div>
-              <div class="popup-sub">📍 ~${dist}m away • ${s.type} • ${bfaBadge}</div>
+              <div class="popup-sub">📍 ~${dist}m away • ${s.road_name || 'Official Stand'} • ${bfaBadge}</div>
+              <div style="font-size: 11px; color: #8b949e; margin-bottom: 6px;">Capacity: ${s.capacity || 2} taxis</div>
               <a href="${mapsUrl}" target="_blank" class="btn-nav">🚶 Walk to Stand (${dist}m)</a>
             </div>
           `);
         });
 
-        badge.textContent = `🟢 ${count1km} Taxis (1km)`;
+        badge.textContent = `🟢 ${count1km} near (1km) • ${taxis.length} Islandwide`;
         badge.classList.remove('loading');
 
       } catch (err) {
