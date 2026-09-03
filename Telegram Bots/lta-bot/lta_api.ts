@@ -1,5 +1,5 @@
 const LTA_API_URL = "https://datamall2.mytransport.sg/ltaodataservice";
-const ACCOUNT_KEY = "vBe1lm0lQc2G5wIoeSJwpQ=="; 
+const ACCOUNT_KEY = Deno.env.get("LTA_ACCOUNT_KEY") ?? ""; 
 
 export async function fetchBusArrival(busStopCode: string) {
   const url = `${LTA_API_URL}/v3/BusArrival?BusStopCode=${busStopCode}`;
